@@ -13,17 +13,17 @@ public class SlingshotMover : MonoBehaviour
 
     [Header("Phase 1 : recul (avant le tir)")]
     [Tooltip("Distance du léger recul, en sens inverse de 'direction'")]
-    public float pullbackDistance = 0.03f;
+    public float pullbackDistance = 0.5f;
 
     [Tooltip("Temps pour reculer")]
     public float pullbackDuration = 0.06f;
 
     [Header("Phase 2 : coup (projection de la bille)")]
     [Tooltip("Distance parcourue vers l'avant, dans le sens de 'direction'")]
-    public float punchDistance = 0.25f;
+    public float punchDistance = 1f;
 
     [Tooltip("Temps pour aller jusqu'au bout du coup (très court = coup sec et rapide)")]
-    public float punchDuration = 0.03f;
+    public float punchDuration = 0.5f;
 
     [Header("Phase 3 : retour à la position initiale")]
     [Tooltip("Temps pour revenir à la position de repos")]
