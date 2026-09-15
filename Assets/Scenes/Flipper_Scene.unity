@@ -1673,7 +1673,7 @@ MonoBehaviour:
   direction: {x: 1, y: 0, z: 0}
   useLocalSpace: 1
   ball: {fileID: 0}
-  launchSpeed: 15
+  launchSpeed: 750
   overrideBallVelocity: 1
   logLaunch: 0
   pullbackDistance: 0.5

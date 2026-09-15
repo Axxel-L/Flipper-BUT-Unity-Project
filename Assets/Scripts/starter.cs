@@ -27,7 +27,7 @@ public class SlingshotMover : MonoBehaviour
     [Header("Impulsion donnée à la bille")]
     [Tooltip("Vitesse de sortie de la bille en m/s, donnée en une seule impulsion (indépendant de la masse).\n" +
              "À garder au-dessus de la vitesse du starter (punchDistance / punchDuration).")]
-    public float launchSpeed = 25f;
+    public float launchSpeed = 750f;
 
     [Tooltip("Vrai = la bille sort exactement à 'launchSpeed'.\n" +
              "Faux = 'launchSpeed' s'ajoute à la vitesse déjà acquise pendant la poussée.")]
