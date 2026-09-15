@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using System.Collections;
 
 public class SlingshotMover : MonoBehaviour
@@ -12,25 +13,25 @@ public class SlingshotMover : MonoBehaviour
 
     [Header("Phase 1 : recul (avant le tir)")]
     [Tooltip("Distance du léger recul, en sens inverse de 'direction'")]
-    public float pullbackDistance = 0.03f;
+    public float pullbackDistance = 0.5f;
 
     [Tooltip("Temps pour reculer")]
     public float pullbackDuration = 0.06f;
 
     [Header("Phase 2 : coup (projection de la bille)")]
     [Tooltip("Distance parcourue vers l'avant, dans le sens de 'direction'")]
-    public float punchDistance = 0.25f;
+    public float punchDistance = 1f;
 
     [Tooltip("Temps pour aller jusqu'au bout du coup (très court = coup sec et rapide)")]
-    public float punchDuration = 0.03f;
+    public float punchDuration = 0.5f;
 
     [Header("Phase 3 : retour à la position initiale")]
     [Tooltip("Temps pour revenir à la position de repos")]
     public float returnDuration = 0.15f;
 
     [Header("Input")]
-    [Tooltip("Touche qui déclenche le mouvement")]
-    public KeyCode triggerKey = KeyCode.Space;
+    [Tooltip("Touche qui déclenche le mouvement (nouveau Input System)")]
+    public Key triggerKey = Key.Space;
 
     private Vector3 startPosition;
     private Vector3 dirNormalized;
@@ -45,7 +46,8 @@ public class SlingshotMover : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(triggerKey))
+        // Keyboard.current peut être null si aucun clavier n'est détecté
+        if (Keyboard.current != null && Keyboard.current[triggerKey].wasPressedThisFrame)
         {
             TriggerMove();
         }
