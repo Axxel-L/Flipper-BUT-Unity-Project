@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Flipper-BUT-Unity-Project.slnx"
+    "dotnet.defaultSolution": "Flipper.slnx"
 }
