@@ -2,14 +2,39 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
 
+/// <summary>
+/// Starter de flipper.
+///
+/// Le starter joue une animation en 3 temps (recul -> coup -> retour) et, s'il touche la bille
+/// pendant le coup, il lui applique une véritable impulsion sur l'axe X (Rigidbody.AddForce)
+/// au lieu de compter uniquement sur le choc physique.
+/// </summary>
 public class SlingshotMover : MonoBehaviour
 {
     [Header("Axe (X = rouge dans la scène)")]
-    [Tooltip("Direction locale de la translation (sera normalisée). Pour l'axe rouge (X) : (1,0,0)")]
+    [Tooltip("Direction locale du déplacement ET de l'impulsion. Pour l'axe rouge (X) : (1,0,0)")]
     public Vector3 direction = Vector3.right;
 
-    [Tooltip("Utiliser l'espace local (true) ou l'espace monde (false)")]
+    [Tooltip("Vrai = 'direction' est exprimée dans l'espace local du starter (suit sa rotation).\n" +
+             "Faux = 'direction' est une direction monde (pratique pour viser un axe précis).")]
     public bool useLocalSpace = true;
+
+    [Header("Bille")]
+    [Tooltip("Rigidbody de la bille à propulser : glisse l'objet 'Bille' dans ce champ.\n" +
+             "Laisser vide = le script prend le Rigidbody le plus proche au démarrage.")]
+    public Rigidbody ball;
+
+    [Header("Impulsion donnée à la bille")]
+    [Tooltip("Vitesse de sortie de la bille en m/s, donnée en une seule impulsion (indépendant de la masse).\n" +
+             "À garder au-dessus de la vitesse du starter (punchDistance / punchDuration).")]
+    public float launchSpeed = 25f;
+
+    [Tooltip("Vrai = la bille sort exactement à 'launchSpeed'.\n" +
+             "Faux = 'launchSpeed' s'ajoute à la vitesse déjà acquise pendant la poussée.")]
+    public bool overrideBallVelocity = true;
+
+    [Tooltip("Écrit dans la Console la vitesse donnée à la bille (utile pour régler launchSpeed).")]
+    public bool logLaunch = false;
 
     [Header("Phase 1 : recul (avant le tir)")]
     [Tooltip("Distance du léger recul, en sens inverse de 'direction'")]
@@ -23,7 +48,7 @@ public class SlingshotMover : MonoBehaviour
     public float punchDistance = 1f;
 
     [Tooltip("Temps pour aller jusqu'au bout du coup (très court = coup sec et rapide)")]
-    public float punchDuration = 0.5f;
+    public float punchDuration = 0.1f;
 
     [Header("Phase 3 : retour à la position initiale")]
     [Tooltip("Temps pour revenir à la position de repos")]
@@ -34,14 +59,45 @@ public class SlingshotMover : MonoBehaviour
     public Key triggerKey = Key.Space;
 
     private Vector3 startPosition;
-    private Vector3 dirNormalized;
     private Coroutine currentRoutine;
+    private bool launchedThisShot;
+
+    private Collider plungerCollider;
+    private Collider ballCollider;
+
+    /// <summary>Direction du réglage, normalisée et jamais nulle.</summary>
+    private Vector3 DirNormalized
+    {
+        get { return direction.sqrMagnitude > 0.000001f ? direction.normalized : Vector3.right; }
+    }
+
+    /// <summary>Direction du tir exprimée en espace monde (celle de l'impulsion).</summary>
+    private Vector3 WorldDir
+    {
+        get { return useLocalSpace ? transform.TransformDirection(DirNormalized) : DirNormalized; }
+    }
+
+    void Awake()
+    {
+        // Le starter est déplacé par script : en "dynamic", Unity téléporte un corps géré par le
+        // solveur physique (contacts approximatifs, à-coups). En kinematic, le transform est la
+        // seule autorité sur la position du starter.
+        Rigidbody self = GetComponent<Rigidbody>();
+        if (self != null) self.isKinematic = true;
+
+        plungerCollider = GetComponent<Collider>();
+        if (plungerCollider == null)
+        {
+            Debug.LogWarning("[Starter] Aucun Collider sur le starter : la bille ne pourra pas être détectée.", this);
+        }
+
+        ResolveBall();
+    }
 
     void Start()
     {
         // Mémorise la position de repos au démarrage
         startPosition = transform.localPosition;
-        dirNormalized = direction.normalized;
     }
 
     void Update()
@@ -55,25 +111,30 @@ public class SlingshotMover : MonoBehaviour
 
     public void TriggerMove()
     {
-        // Si le slingshot est déjà en train de bouger, on ignore le nouvel appel
-        // pour ne pas casser l'animation en cours (évite les à-coups).
+        // Un seul tir à la fois : on ignore l'appui tant que l'animation n'est pas terminée.
         if (currentRoutine != null) return;
+
+        // Si la bille a été détruite/remplacée, on la retrouve avant de tirer.
+        if (ball == null) ResolveBall();
 
         currentRoutine = StartCoroutine(MoveRoutine());
     }
 
     private IEnumerator MoveRoutine()
     {
-        Vector3 localDir = useLocalSpace ? dirNormalized : transform.InverseTransformDirection(dirNormalized);
+        Vector3 localDir = DirNormalized;   // déplacement : espace local du starter
+        Vector3 worldDir = WorldDir;        // impulsion   : espace monde
 
         Vector3 pulledBackPosition = startPosition - localDir * pullbackDistance;
         Vector3 punchedPosition = startPosition + localDir * punchDistance;
 
+        launchedThisShot = false;
+
         // Phase 1 : léger recul
         yield return MoveOverTime(transform.localPosition, pulledBackPosition, pullbackDuration);
 
-        // Phase 2 : coup rapide vers l'avant (projette la bille)
-        yield return MoveOverTime(transform.localPosition, punchedPosition, punchDuration);
+        // Phase 2 : coup vers l'avant (la bille est poussée, puis reçoit son impulsion)
+        yield return PunchRoutine(punchedPosition, worldDir);
 
         // Phase 3 : retour à la position de repos
         yield return MoveOverTime(transform.localPosition, startPosition, returnDuration);
@@ -81,9 +142,76 @@ public class SlingshotMover : MonoBehaviour
         currentRoutine = null;
     }
 
+    private IEnumerator PunchRoutine(Vector3 punchedPosition, Vector3 worldDir)
+    {
+        Vector3 from = transform.localPosition;
+
+        // Sécurité : si duration = 0, on saute directement à la position finale
+        if (punchDuration <= 0f)
+        {
+            transform.localPosition = punchedPosition;
+            if (PlungerTouchesBall()) LaunchBall(worldDir);
+            yield break;
+        }
+
+        bool touchedBall = false;
+        float elapsed = 0f;
+
+        while (elapsed < punchDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / punchDuration);
+            transform.localPosition = Vector3.Lerp(from, punchedPosition, t);
+
+            // On mémorise le contact : en fin de coup la bille est déjà devant le starter.
+            if (!touchedBall && PlungerTouchesBall()) touchedBall = true;
+
+            yield return null;
+        }
+        transform.localPosition = punchedPosition;
+
+        // Impulsion donnée quand le starter a fini de pousser : la vitesse de sortie de la bille
+        // est ainsi celle réglée, et non "poussée physique + impulsion".
+        if (touchedBall) LaunchBall(worldDir);
+    }
+
+    /// <summary>Vrai si les colliders du starter et de la bille se recouvrent (détection géométrique).</summary>
+    private bool PlungerTouchesBall()
+    {
+        if (launchedThisShot) return false;
+        if (plungerCollider == null || ballCollider == null) return false;
+
+        return plungerCollider.bounds.Intersects(ballCollider.bounds);
+    }
+
+    /// <summary>Donne son impulsion à la bille, le long de l'axe de tir.</summary>
+    private void LaunchBall(Vector3 worldDir)
+    {
+        if (ball == null || launchedThisShot) return;
+
+        launchedThisShot = true;
+
+        if (overrideBallVelocity)
+        {
+            // Le starter a poussé la bille physiquement pendant le coup : on annule la composante
+            // de vitesse déjà acquise le long de l'axe, sinon on obtiendrait "poussée + launchSpeed".
+            Vector3 velocity = ball.linearVelocity;
+            velocity -= worldDir * Vector3.Dot(velocity, worldDir);
+            ball.linearVelocity = velocity;
+        }
+
+        // ForceMode.VelocityChange : impulsion exprimée en vitesse (m/s), indépendante de la masse.
+        ball.AddForce(worldDir * launchSpeed, ForceMode.VelocityChange);
+
+        if (logLaunch)
+        {
+            float speed = Vector3.Dot(ball.linearVelocity, worldDir);
+            Debug.Log($"[Starter] Impulsion donnée à '{ball.name}' : {speed:F2} m/s le long de {worldDir}", this);
+        }
+    }
+
     private IEnumerator MoveOverTime(Vector3 from, Vector3 to, float duration)
     {
-        // Sécurité : si duration = 0, on saute directement à la position finale
         if (duration <= 0f)
         {
             transform.localPosition = to;
@@ -99,5 +227,44 @@ public class SlingshotMover : MonoBehaviour
             yield return null;
         }
         transform.localPosition = to;
+    }
+
+    /// <summary>Récupère la bille : référence de l'Inspector, sinon le Rigidbody le plus proche.</summary>
+    private void ResolveBall()
+    {
+        if (ball == null) ball = FindNearestRigidbody();
+
+        if (ball != null)
+        {
+            ballCollider = ball.GetComponent<Collider>();
+        }
+        else
+        {
+            Debug.LogWarning("[Starter] Aucune bille trouvée. Assigne le Rigidbody de la bille dans " +
+                             "le champ 'Ball' du composant SlingshotMover.", this);
+        }
+    }
+
+    /// <summary>Trouve le Rigidbody le plus proche (hors starter) quand la référence n'est pas assignée.</summary>
+    private Rigidbody FindNearestRigidbody()
+    {
+        Rigidbody[] bodies = FindObjectsByType<Rigidbody>(FindObjectsInactive.Exclude);
+        Rigidbody nearest = null;
+        float bestDistance = float.MaxValue;
+
+        foreach (Rigidbody candidate in bodies)
+        {
+            if (candidate == null) continue;
+            if (candidate.transform == transform || candidate.transform.IsChildOf(transform)) continue;
+
+            float distance = (candidate.position - transform.position).sqrMagnitude;
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                nearest = candidate;
+            }
+        }
+
+        return nearest;
     }
 }
