@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using System.Collections;
 
 public class SlingshotMover : MonoBehaviour
@@ -29,8 +30,8 @@ public class SlingshotMover : MonoBehaviour
     public float returnDuration = 0.15f;
 
     [Header("Input")]
-    [Tooltip("Touche qui déclenche le mouvement")]
-    public KeyCode triggerKey = KeyCode.Space;
+    [Tooltip("Touche qui déclenche le mouvement (nouveau Input System)")]
+    public Key triggerKey = Key.Space;
 
     private Vector3 startPosition;
     private Vector3 dirNormalized;
@@ -45,7 +46,8 @@ public class SlingshotMover : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(triggerKey))
+        // Keyboard.current peut être null si aucun clavier n'est détecté
+        if (Keyboard.current != null && Keyboard.current[triggerKey].wasPressedThisFrame)
         {
             TriggerMove();
         }
