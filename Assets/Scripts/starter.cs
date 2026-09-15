@@ -24,6 +24,11 @@ public class SlingshotMover : MonoBehaviour
              "Laisser vide = le script prend le Rigidbody le plus proche au démarrage.")]
     public Rigidbody ball;
 
+    [Tooltip("Optimise le Rigidbody de la bille pour une vitesse élevée : interpolation " +
+             "(mouvement fluide à l'écran) et détection continue des collisions " +
+             "(sans quoi la bille traverse les murs à 70 m/s).")]
+    public bool optimizeBallMotion = true;
+
     [Header("Impulsion donnée à la bille")]
     [Tooltip("Vitesse de sortie de la bille en m/s, donnée en une seule impulsion (indépendant de la masse).\n" +
              "À garder au-dessus de la vitesse du starter (punchDistance / punchDuration).")]
@@ -237,6 +242,14 @@ public class SlingshotMover : MonoBehaviour
         if (ball != null)
         {
             ballCollider = ball.GetComponent<Collider>();
+
+            if (optimizeBallMotion)
+            {
+                // À 70 m/s (1,4 unité par pas physique), un Rigidbody sans interpolation avance
+                // par saccades à l'écran, et une détection discrète le fait traverser les murs.
+                ball.interpolation = RigidbodyInterpolation.Interpolate;
+                ball.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            }
         }
         else
         {
