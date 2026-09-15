@@ -133,7 +133,7 @@ public partial class @PinballControls: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""6424cb8d-2c31-4e7f-9ed4-41ad4d1dc9b7"",
-                    ""path"": ""<HID::xin-mo.com Xinmotek Controller>/trigger"",
+                    ""path"": ""<HID::xin-mo.com Xinmotek Controller>/button5"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -144,7 +144,7 @@ public partial class @PinballControls: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""0c7b889f-42ba-4d6a-89f3-589329341aa3"",
-                    ""path"": ""<HID::xin-mo.com Xinmotek Controller>/button5"",
+                    ""path"": ""<HID::xin-mo.com Xinmotek Controller>/button6"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -155,7 +155,7 @@ public partial class @PinballControls: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""d74cc669-e1ae-45a9-9793-ecbdac0ef06f"",
-                    ""path"": ""<HID::xin-mo.com Xinmotek Controller>/button4"",
+                    ""path"": ""<HID::xin-mo.com Xinmotek Controller>/button10"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",

@@ -60,12 +60,18 @@ public class SlingshotMover : MonoBehaviour
     public float returnDuration = 0.15f;
 
     [Header("Input")]
-    [Tooltip("Touche qui déclenche le mouvement (nouveau Input System)")]
+    [Tooltip("Touche de secours, pour lancer sans la plaque branchée (nouveau Input System)")]
     public Key triggerKey = Key.Space;
+
+    [Tooltip("Lance la bille avec le bouton de la plaque xin-mo (action LaunchBall de PinballControls)")]
+    public bool useBoardButton = true;
 
     private Vector3 startPosition;
     private Coroutine currentRoutine;
     private bool launchedThisShot;
+
+    private PinballControls board;
+    private InputAction launchAction;
 
     private Collider plungerCollider;
     private Collider ballCollider;
@@ -97,6 +103,28 @@ public class SlingshotMover : MonoBehaviour
         }
 
         ResolveBall();
+
+        // Bouton de la plaque : action LaunchBall (<HID::xin-mo.com Xinmotek Controller>/button4)
+        board = new PinballControls();
+        launchAction = board.GamePlayPF.LaunchBall;
+    }
+
+    void OnEnable()
+    {
+        if (board != null) board.GamePlayPF.Enable();
+    }
+
+    void OnDisable()
+    {
+        if (board != null) board.GamePlayPF.Disable();
+    }
+
+    void OnDestroy()
+    {
+        if (board == null) return;
+
+        board.GamePlayPF.Disable();
+        board.Dispose();
     }
 
     void Start()
@@ -107,11 +135,15 @@ public class SlingshotMover : MonoBehaviour
 
     void Update()
     {
+        bool launchPressed = useBoardButton && launchAction != null && launchAction.WasPressedThisFrame();
+
         // Keyboard.current peut être null si aucun clavier n'est détecté
-        if (Keyboard.current != null && Keyboard.current[triggerKey].wasPressedThisFrame)
+        if (!launchPressed && Keyboard.current != null)
         {
-            TriggerMove();
+            launchPressed = Keyboard.current[triggerKey].wasPressedThisFrame;
         }
+
+        if (launchPressed) TriggerMove();
     }
 
     public void TriggerMove()

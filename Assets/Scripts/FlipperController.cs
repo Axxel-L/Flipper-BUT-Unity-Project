@@ -1,12 +1,19 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 /// <summary>
 /// Contrôle un flipper 3D piloté par un HingeJoint (moteur + butées angulaires).
 ///
-/// À placer sur CHAQUE flipper (gauche et droit), avec une touche différente.
+/// À placer sur CHAQUE flipper (gauche et droit), avec un bouton de plaque différent.
 /// Le flipper tourne autour de l'axe du HingeJoint : monter le flipper = faire
 /// tourner le moteur dans un sens, le relâcher = le faire tourner dans l'autre.
+///
+/// Entrées : les boutons de la plaque xin-mo, via les actions du wrapper
+/// PinballControls généré depuis l'asset du prof (action map GamePlayPF) :
+///   - LeftFlipper  <- <HID::xin-mo.com Xinmotek Controller>/trigger
+///   - RightFlipper <- <HID::xin-mo.com Xinmotek Controller>/button5
+/// Une touche clavier sert de secours pour pouvoir tester sans la plaque branchée.
 ///
 /// Prérequis sur le GameObject :
 /// - un Rigidbody
@@ -19,15 +26,22 @@ using UnityEngine.InputSystem;
 /// butée contre laquelle pousse le moteur au repos doit donc être l'angle 0, sinon
 /// le flipper se déplace tout seul dès qu'on appuie sur Play. Le script vérifie ce
 /// point au démarrage et prévient dans la Console si c'est incohérent.
-///
-/// Ce script utilise le NOUVEAU Input System (celui configuré dans le projet).
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(HingeJoint))]
 public class FlipperController : MonoBehaviour
 {
-    [Header("Touche (nouveau Input System)")]
-    [Tooltip("Touche qui active ce flipper. Ex : LeftArrow / RightArrow")]
+    /// <summary>Quel bouton de la plaque pilote ce flipper.</summary>
+    public enum Side { Left, Right }
+
+    [Header("Entrées (plaque xin-mo)")]
+    [Tooltip("Bouton de la plaque utilisé par ce flipper.\n" +
+             "Left  -> action LeftFlipper  (trigger)\n" +
+             "Right -> action RightFlipper (button5)")]
+    public Side side = Side.Left;
+
+    [Header("Entrées (clavier, secours)")]
+    [Tooltip("Touche de secours, pour tester sans la plaque branchée")]
     public Key key = Key.RightArrow;
 
     [Header("Moteur du HingeJoint")]
@@ -55,8 +69,23 @@ public class FlipperController : MonoBehaviour
              "des collisions (le flipper ne rate plus la bille pendant le coup)")]
     public bool smoothMotion = true;
 
+    // Sert à prévenir si les deux flippers écoutent le même bouton de la plaque.
+    private static readonly HashSet<Side> claimedSides = new HashSet<Side>();
+
+    // Ce projet a "Enter Play Mode Options" activé : le domaine n'est pas rechargé entre
+    // deux Play, donc les statiques survivent et le contrôle ci-dessus donnerait de fausses
+    // alertes au deuxième lancement. On repart de zéro explicitement à chaque Play.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetClaimedSides()
+    {
+        claimedSides.Clear();
+    }
+
     private HingeJoint hinge;
     private Rigidbody body;
+
+    private PinballControls board;
+    private InputAction boardAction;
 
     // Dernier état connu : on n'écrit au moteur que quand il change,
     // pour ne pas rappeler le moteur du joint à chaque frame.
@@ -66,6 +95,8 @@ public class FlipperController : MonoBehaviour
     {
         hinge = GetComponent<HingeJoint>();
         body = GetComponent<Rigidbody>();
+
+        SetUpBoardInput();
 
         ApplyPhysicsSettings();
         ApplyJointSettings();
@@ -77,21 +108,60 @@ public class FlipperController : MonoBehaviour
         WarnIfRestDirectionLooksWrong();
     }
 
-    void Update()
+    void OnEnable()
     {
-        // Keyboard.current peut être null si aucun clavier n'est détecté
-        if (Keyboard.current == null) return;
-
-        SetPressed(Keyboard.current[key].isPressed);
+        if (board != null) board.GamePlayPF.Enable();
     }
 
-    /// <summary>Active ou relâche le flipper. Public pour pouvoir le piloter autrement (bouton, autre script).</summary>
+    void OnDisable()
+    {
+        if (board != null) board.GamePlayPF.Disable();
+    }
+
+    void OnDestroy()
+    {
+        if (board == null) return;
+
+        board.GamePlayPF.Disable();
+        board.Dispose();
+    }
+
+    void Update()
+    {
+        SetPressed(IsFlipperPressed());
+    }
+
+    /// <summary>Active ou relâche le flipper. Public pour pouvoir le piloter autrement (bouton UI, autre script).</summary>
     public void SetPressed(bool value)
     {
         if (value == pressed) return;
 
         pressed = value;
         ApplyMotorVelocity(value ? activeVelocity : restVelocity);
+    }
+
+    private void SetUpBoardInput()
+    {
+        board = new PinballControls();
+        boardAction = side == Side.Left ? board.GamePlayPF.LeftFlipper : board.GamePlayPF.RightFlipper;
+
+        if (!claimedSides.Add(side))
+        {
+            Debug.LogWarning(
+                $"[Flipper '{name}'] Un autre flipper utilise déjà le bouton '{side}' de la plaque. " +
+                "Mets 'Side = Left' sur le flipper gauche et 'Side = Right' sur le flipper droit.", this);
+        }
+    }
+
+    private bool IsFlipperPressed()
+    {
+        // 1) Bouton de la plaque
+        if (boardAction != null && boardAction.IsPressed()) return true;
+
+        // 2) Secours clavier (Keyboard.current peut être null si aucun clavier n'est détecté)
+        if (Keyboard.current != null && Keyboard.current[key].isPressed) return true;
+
+        return false;
     }
 
     private void ApplyMotorVelocity(float velocity)

@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem; // <= Nouveau Input System
 
-public class FlipperController : MonoBehaviour
+public class FlipperRotationController : MonoBehaviour
 {
     [Header("Angles du flipper")]
     public float restAngle = -20f;
