@@ -176,10 +176,17 @@ public class FlipperController : MonoBehaviour
 
     private void ApplyPhysicsSettings()
     {
-        if (!smoothMotion) return;
-
         if (body == null) body = GetComponent<Rigidbody>();
         if (body == null) return;
+
+        // Le flipper est contraint par son HingeJoint : la gravité ne doit pas
+        // créer de couple autour du pivot lorsque le modèle est orienté dans la scène.
+        body.useGravity = false;
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        body.constraints |= RigidbodyConstraints.FreezePosition;
+
+        if (!smoothMotion) return;
 
         // Le flipper tourne à 900°/s : sans interpolation, il avance par saccades à l'écran.
         body.interpolation = RigidbodyInterpolation.Interpolate;

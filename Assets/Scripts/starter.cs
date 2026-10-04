@@ -41,6 +41,22 @@ public class SlingshotMover : MonoBehaviour
     [Tooltip("Écrit dans la Console la vitesse donnée à la bille (utile pour régler launchSpeed).")]
     public bool logLaunch = false;
 
+    [Header("Variation contrôlée des tirs")]
+    [Tooltip("Ajoute une variation légère à chaque tir pour éviter une trajectoire identique.")]
+    public bool randomizeLaunch = true;
+
+    [Tooltip("Vitesse minimale réellement appliquée, en m/s.")]
+    [Min(0f)]
+    public float minimumLaunchSpeed = 25f;
+
+    [Tooltip("Vitesse maximale réellement appliquée, en m/s.")]
+    [Min(0f)]
+    public float maximumLaunchSpeed = 31f;
+
+    [Tooltip("Écart angulaire maximal du tir, dans le plan du flipper.")]
+    [Range(0f, 20f)]
+    public float maximumLaunchAngle = 8f;
+
     [Header("Phase 1 : recul (avant le tir)")]
     [Tooltip("Distance du léger recul, en sens inverse de 'direction'")]
     public float pullbackDistance = 0.5f;
@@ -227,24 +243,70 @@ public class SlingshotMover : MonoBehaviour
         if (ball == null || launchedThisShot) return;
 
         launchedThisShot = true;
+        ball.useGravity = true;
+
+        Vector3 launchDirection = GetLaunchDirection(worldDir);
+        float launchVelocity = GetLaunchSpeed();
 
         if (overrideBallVelocity)
         {
             // Le starter a poussé la bille physiquement pendant le coup : on annule la composante
             // de vitesse déjà acquise le long de l'axe, sinon on obtiendrait "poussée + launchSpeed".
             Vector3 velocity = ball.linearVelocity;
-            velocity -= worldDir * Vector3.Dot(velocity, worldDir);
+            velocity -= launchDirection * Vector3.Dot(velocity, launchDirection);
             ball.linearVelocity = velocity;
         }
 
         // ForceMode.VelocityChange : impulsion exprimée en vitesse (m/s), indépendante de la masse.
-        ball.AddForce(worldDir * launchSpeed, ForceMode.VelocityChange);
+        ball.AddForce(launchDirection * launchVelocity, ForceMode.VelocityChange);
+
+        Debug.Log(
+            $"[Starter][Diagnostic] Tir de '{ball.name}' à t={Time.time:F3} : " +
+            $"position={ball.position}, direction={launchDirection}, " +
+            $"impulsion={launchVelocity:F2} m/s, vitesse={ball.linearVelocity}", this);
 
         if (logLaunch)
         {
-            float speed = Vector3.Dot(ball.linearVelocity, worldDir);
-            Debug.Log($"[Starter] Impulsion donnée à '{ball.name}' : {speed:F2} m/s le long de {worldDir}", this);
+            float speed = Vector3.Dot(ball.linearVelocity, launchDirection);
+            Debug.Log($"[Starter] Impulsion donnée à '{ball.name}' : {speed:F2} m/s le long de {launchDirection}", this);
         }
+    }
+
+    private Vector3 GetLaunchDirection(Vector3 baseDirection)
+    {
+        Vector3 directionInPlane = baseDirection;
+        directionInPlane.z = 0f;
+        if (directionInPlane.sqrMagnitude < 0.0001f)
+        {
+            directionInPlane = baseDirection;
+        }
+
+        directionInPlane.Normalize();
+        if (!randomizeLaunch || maximumLaunchAngle <= 0f)
+        {
+            return directionInPlane;
+        }
+
+        float angle = Random.Range(-maximumLaunchAngle, maximumLaunchAngle);
+        Vector3 lateral = Vector3.Cross(Vector3.forward, directionInPlane);
+        if (lateral.sqrMagnitude < 0.0001f)
+        {
+            return directionInPlane;
+        }
+
+        return (directionInPlane + lateral.normalized * Mathf.Tan(angle * Mathf.Deg2Rad)).normalized;
+    }
+
+    private float GetLaunchSpeed()
+    {
+        if (!randomizeLaunch)
+        {
+            return launchSpeed;
+        }
+
+        float minimum = Mathf.Min(minimumLaunchSpeed, maximumLaunchSpeed);
+        float maximum = Mathf.Max(minimumLaunchSpeed, maximumLaunchSpeed);
+        return Random.Range(minimum, maximum);
     }
 
     private IEnumerator MoveOverTime(Vector3 from, Vector3 to, float duration)
@@ -274,6 +336,7 @@ public class SlingshotMover : MonoBehaviour
         if (ball != null)
         {
             ballCollider = ball.GetComponent<Collider>();
+            ball.useGravity = false;
 
             if (optimizeBallMotion)
             {
@@ -301,6 +364,7 @@ public class SlingshotMover : MonoBehaviour
         {
             if (candidate == null) continue;
             if (candidate.transform == transform || candidate.transform.IsChildOf(transform)) continue;
+            if (!candidate.CompareTag("Ball")) continue;
 
             float distance = (candidate.position - transform.position).sqrMagnitude;
             if (distance < bestDistance)
