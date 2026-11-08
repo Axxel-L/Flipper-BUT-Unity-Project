@@ -26,13 +26,26 @@ public class BallOutOfBounds : MonoBehaviour
         }
 
         // Stoppe tout mouvement
+        // Stoppe tout mouvement
         ballRb.linearVelocity = Vector3.zero;
         ballRb.angularVelocity = Vector3.zero;
         ballRb.useGravity = false;
 
-        // Replace la boule au point de départ
-        ballRb.transform.position = startPosition.position;
-        ballRb.transform.rotation = startPosition.rotation;
+        // Coupe la traînée pendant la téléportation, sinon elle trace une ligne sur tout le plateau
+        TrailRenderer trail = ballRb.GetComponent<TrailRenderer>();
+        if (trail != null) trail.emitting = false;
+
+        // Replace la bille (Rigidbody ET Transform, à cause de l'interpolation)
+        ballRb.position = startPosition.position;
+        ballRb.rotation = startPosition.rotation;
+        ballRb.transform.SetPositionAndRotation(startPosition.position, startPosition.rotation);
+        Physics.SyncTransforms();
+
+        if (trail != null)
+        {
+            trail.Clear();
+            trail.emitting = true;
+        }
         Debug.LogWarning(
             $"[Bille][Diagnostic] Bille replacée par '{name}' à {startPosition.position}.", this);
     }
