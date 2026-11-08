@@ -67,7 +67,7 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Flipper.slnx",
+    "dotnet.defaultSolution": "Flipper-BUT-Unity-Project.slnx",
     "chat.tools.terminal.autoApprove": {
         "/^dotnet build Flipper\\.slnx --no-restore$/": {
             "approve": true,
