@@ -274,27 +274,24 @@ public class SlingshotMover : MonoBehaviour
 
     private Vector3 GetLaunchDirection(Vector3 baseDirection)
     {
-        Vector3 directionInPlane = baseDirection;
-        directionInPlane.z = 0f;
+        // Le Starter a la même inclinaison que le plateau : son "haut" est la normale de la table.
+        Vector3 boardNormal = transform.up;
+
+        Vector3 directionInPlane = Vector3.ProjectOnPlane(baseDirection, boardNormal);
         if (directionInPlane.sqrMagnitude < 0.0001f)
         {
             directionInPlane = baseDirection;
         }
-
         directionInPlane.Normalize();
+
         if (!randomizeLaunch || maximumLaunchAngle <= 0f)
         {
             return directionInPlane;
         }
 
+        // Rotation autour de la normale du plateau = déviation en travers de la table
         float angle = Random.Range(-maximumLaunchAngle, maximumLaunchAngle);
-        Vector3 lateral = Vector3.Cross(Vector3.forward, directionInPlane);
-        if (lateral.sqrMagnitude < 0.0001f)
-        {
-            return directionInPlane;
-        }
-
-        return (directionInPlane + lateral.normalized * Mathf.Tan(angle * Mathf.Deg2Rad)).normalized;
+        return Quaternion.AngleAxis(angle, boardNormal) * directionInPlane;
     }
 
     private float GetLaunchSpeed()

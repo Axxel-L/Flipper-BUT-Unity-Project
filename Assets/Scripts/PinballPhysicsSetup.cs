@@ -31,6 +31,10 @@ public sealed class PinballPhysicsSetup : MonoBehaviour
     [Min(0.01f)]
     [SerializeField] private float gravityMagnitude = 9.81f;
 
+    [Tooltip("Force qui plaque la bille sur le plateau (0 = aucune, 1 = autant que la gravité).")]
+    [Range(0f, 1f)]
+    [SerializeField] private float pressForce = 0.5f;
+
     [Header("Collisions générées")]
     [Tooltip("Ajoute un peu de marge aux colliders générés pour éviter les traversées à haute vitesse.")]
     [Min(0f)]
@@ -67,14 +71,14 @@ public sealed class PinballPhysicsSetup : MonoBehaviour
                 surfaceNormal = -surfaceNormal;
             }
 
-            Vector3 towardFlippers = Vector3.left;
-            Vector3 projectedGravity = Vector3.ProjectOnPlane(
-                towardFlippers.sqrMagnitude > 0.0001f ? towardFlippers : Vector3.down,
-                surfaceNormal);
-            if (projectedGravity.sqrMagnitude > 0.0001f)
+                        Vector3 towardFlippers = Vector3.left;
+            Vector3 downhill = Vector3.ProjectOnPlane(towardFlippers, surfaceNormal);
+            if (downhill.sqrMagnitude > 0.0001f)
             {
-                Vector3 gravity = projectedGravity.normalized * gravityMagnitude;
-                Debug.Log($"[PinballPhysics] Gravité vers la sortie (X-) : {gravity}", playfield);
+                // Composante le long du plateau + composante qui plaque la bille dessus
+                Vector3 gravity = downhill.normalized * gravityMagnitude
+                                - surfaceNormal * (gravityMagnitude * pressForce);
+                Debug.Log($"[PinballPhysics] Gravité : {gravity}", playfield);
                 return gravity;
             }
         }
