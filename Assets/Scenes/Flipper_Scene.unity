@@ -233,7 +233,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9dcff20ae30be407a87760ba5b2bfafa, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 9.17
+      value: 5.8
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9dcff20ae30be407a87760ba5b2bfafa, type: 3}
       propertyPath: m_LocalRotation.w
@@ -740,8 +740,8 @@ Transform:
   m_GameObject: {fileID: 307402493}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.7071104, z: -0, w: 0.7071032}
-  m_LocalPosition: {x: -16.55, y: 1.22, z: -12.45}
-  m_LocalScale: {x: 0.49755028, y: 2.3800313, z: 19.743383}
+  m_LocalPosition: {x: -9, y: 1.22, z: -12.45}
+  m_LocalScale: {x: 0.49755028, y: 2.3800313, z: 35}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -3346,6 +3346,7 @@ GameObject:
   - component: {fileID: 1211274374}
   - component: {fileID: 1211274375}
   - component: {fileID: 1211274376}
+  - component: {fileID: 1211274377}
   m_Layer: 0
   m_Name: Starter
   m_TagString: Untagged
@@ -3555,6 +3556,37 @@ MonoBehaviour:
   overrideBallVelocity: 1
   logLaunch: 0
   impactBoostMultiplier: 2.5
+  randomizeLaunch: 1
+  minimumLaunchSpeed: 25
+  maximumLaunchSpeed: 31
+  maximumLaunchAngle: 8
+  pullbackDistance: 0.5
+  pullbackDuration: 0.06
+  punchDistance: 1
+  punchDuration: 0.1
+  returnDuration: 0.15
+  triggerKey: 1
+  useBoardButton: 1
+--- !u!114 &1211274377
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1211274368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a25d62dfeab0ad04594b581de45b7541, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SlingshotMover
+  direction: {x: 1, y: 0, z: 0}
+  useLocalSpace: 1
+  ball: {fileID: 0}
+  optimizeBallMotion: 1
+  launchSpeed: 750
+  overrideBallVelocity: 1
+  logLaunch: 0
+  impactBoostMultiplier: 10
   randomizeLaunch: 1
   minimumLaunchSpeed: 25
   maximumLaunchSpeed: 31
