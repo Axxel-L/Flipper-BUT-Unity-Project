@@ -45,7 +45,7 @@ public class SlingshotMover : MonoBehaviour
     [Tooltip("Multiplie la vitesse donnée à la bille au moment de l'impact (1 = inchangé).\n" +
              "S'applique que 'randomizeLaunch' soit actif ou non.")]
     [Min(1f)]
-    public float impactBoostMultiplier = 1.5f;
+    public float impactBoostMultiplier = 2.5f;
 
     [Header("Variation contrôlée des tirs")]
     [Tooltip("Ajoute une variation légère à chaque tir pour éviter une trajectoire identique.")]
@@ -359,7 +359,7 @@ public class SlingshotMover : MonoBehaviour
         else
         {
             Debug.LogWarning("[Starter] Aucune bille trouvée. Assigne le Rigidbody de la bille dans " +
-                             "le champ 'Ball' du composant SlingshotMover.", this);
+                "le champ 'Ball' du composant SlingshotMover.", this);
         }
     }
 
