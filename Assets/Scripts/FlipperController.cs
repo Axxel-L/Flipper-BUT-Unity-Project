@@ -15,9 +15,9 @@ public class FlipperController : MonoBehaviour
     public Key key = Key.RightArrow;
 
     [Header("Moteur")]
-    public float activeVelocity = 900f;
-    public float restVelocity = -900f;
-    public float maxTorque = 10000f;
+    public float activeVelocity = 600f;
+    public float restVelocity = -600f;
+    public float maxTorque = 1500f;
 
     [Header("Limites")]
     public bool useLimits = true;
