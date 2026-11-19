@@ -14,6 +14,8 @@ public sealed class BumperPhysics : MonoBehaviour
     [Header("Réglages du rebond")]
     [Min(0f)]
     [SerializeField] private float minimumSpeed = 7.5f;
+    [Min(0f)]
+    [SerializeField] private float impactSpeedBoost = 2f;
     [Range(0f, 1.5f)]
     [SerializeField] private float energyRetention = 1.08f;
     [Min(0f)]
@@ -113,7 +115,8 @@ public sealed class BumperPhysics : MonoBehaviour
         Vector3 tangent = Vector3.Cross(Vector3.up, normal);
         float incomingRadialSpeed = Vector3.Dot(incoming, normal);
         float tangentialSpeed = Vector3.Dot(incoming, tangent);
-        float reflectedRadialSpeed = Mathf.Max(minimumSpeed, Mathf.Abs(incomingRadialSpeed) * energyRetention);
+        float reflectedRadialSpeed = Mathf.Max(minimumSpeed, Mathf.Abs(incomingRadialSpeed) * energyRetention)
+            + impactSpeedBoost;
 
         ball.linearVelocity = normal * reflectedRadialSpeed
             + tangent * tangentialSpeed * (1f - tangentDeflection);
