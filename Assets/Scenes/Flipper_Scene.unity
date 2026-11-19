@@ -1884,7 +1884,7 @@ GameObject:
   - component: {fileID: 693079539}
   - component: {fileID: 693079538}
   m_Layer: 0
-  m_Name: surface-starter
+  m_Name: plafond-starter
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3311,6 +3311,8 @@ GameObject:
   - component: {fileID: 1211274369}
   - component: {fileID: 1211274373}
   - component: {fileID: 1211274374}
+  - component: {fileID: 1211274375}
+  - component: {fileID: 1211274376}
   m_Layer: 0
   m_Name: Starter
   m_TagString: Untagged
@@ -3430,6 +3432,7 @@ MonoBehaviour:
   launchSpeed: 70
   overrideBallVelocity: 1
   logLaunch: 0
+  impactBoostMultiplier: 1.5
   randomizeLaunch: 1
   minimumLaunchSpeed: 25
   maximumLaunchSpeed: 31
@@ -3468,6 +3471,68 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &1211274375
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1211274368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a25d62dfeab0ad04594b581de45b7541, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SlingshotMover
+  direction: {x: 1, y: 0, z: 0}
+  useLocalSpace: 1
+  ball: {fileID: 0}
+  optimizeBallMotion: 1
+  launchSpeed: 750
+  overrideBallVelocity: 1
+  logLaunch: 0
+  impactBoostMultiplier: 1.5
+  randomizeLaunch: 1
+  minimumLaunchSpeed: 25
+  maximumLaunchSpeed: 31
+  maximumLaunchAngle: 8
+  pullbackDistance: 0.5
+  pullbackDuration: 0.06
+  punchDistance: 1
+  punchDuration: 0.1
+  returnDuration: 0.15
+  triggerKey: 1
+  useBoardButton: 1
+--- !u!114 &1211274376
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1211274368}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a25d62dfeab0ad04594b581de45b7541, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SlingshotMover
+  direction: {x: 1, y: 0, z: 0}
+  useLocalSpace: 1
+  ball: {fileID: 0}
+  optimizeBallMotion: 1
+  launchSpeed: 750
+  overrideBallVelocity: 1
+  logLaunch: 0
+  impactBoostMultiplier: 2.5
+  randomizeLaunch: 1
+  minimumLaunchSpeed: 25
+  maximumLaunchSpeed: 31
+  maximumLaunchAngle: 8
+  pullbackDistance: 0.5
+  pullbackDuration: 0.06
+  punchDistance: 1
+  punchDuration: 0.1
+  returnDuration: 0.15
+  triggerKey: 1
+  useBoardButton: 1
 --- !u!1 &1218836596
 GameObject:
   m_ObjectHideFlags: 0
