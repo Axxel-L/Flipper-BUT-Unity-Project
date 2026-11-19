@@ -41,15 +41,21 @@ public class SlingshotMover : MonoBehaviour
     [Tooltip("Écrit dans la Console la vitesse donnée à la bille (utile pour régler launchSpeed).")]
     public bool logLaunch = false;
 
+    [Header("Boost à l'impact")]
+    [Tooltip("Multiplie la vitesse donnée à la bille au moment de l'impact (1 = inchangé).\n" +
+             "S'applique que 'randomizeLaunch' soit actif ou non.")]
+    [Min(1f)]
+    public float impactBoostMultiplier = 1.5f;
+
     [Header("Variation contrôlée des tirs")]
     [Tooltip("Ajoute une variation légère à chaque tir pour éviter une trajectoire identique.")]
     public bool randomizeLaunch = true;
 
-    [Tooltip("Vitesse minimale réellement appliquée, en m/s.")]
+    [Tooltip("Vitesse minimale réellement appliquée, en m/s (avant le boost à l'impact).")]
     [Min(0f)]
     public float minimumLaunchSpeed = 25f;
 
-    [Tooltip("Vitesse maximale réellement appliquée, en m/s.")]
+    [Tooltip("Vitesse maximale réellement appliquée, en m/s (avant le boost à l'impact).")]
     [Min(0f)]
     public float maximumLaunchSpeed = 31f;
 
@@ -263,7 +269,7 @@ public class SlingshotMover : MonoBehaviour
         Debug.Log(
             $"[Starter][Diagnostic] Tir de '{ball.name}' à t={Time.time:F3} : " +
             $"position={ball.position}, direction={launchDirection}, " +
-            $"impulsion={launchVelocity:F2} m/s, vitesse={ball.linearVelocity}", this);
+            $"impulsion={launchVelocity:F2} m/s (boost x{impactBoostMultiplier:F2}), vitesse={ball.linearVelocity}", this);
 
         if (logLaunch)
         {
@@ -296,14 +302,21 @@ public class SlingshotMover : MonoBehaviour
 
     private float GetLaunchSpeed()
     {
+        float baseSpeed;
+
         if (!randomizeLaunch)
         {
-            return launchSpeed;
+            baseSpeed = launchSpeed;
+        }
+        else
+        {
+            float minimum = Mathf.Min(minimumLaunchSpeed, maximumLaunchSpeed);
+            float maximum = Mathf.Max(minimumLaunchSpeed, maximumLaunchSpeed);
+            baseSpeed = Random.Range(minimum, maximum);
         }
 
-        float minimum = Mathf.Min(minimumLaunchSpeed, maximumLaunchSpeed);
-        float maximum = Mathf.Max(minimumLaunchSpeed, maximumLaunchSpeed);
-        return Random.Range(minimum, maximum);
+        // Boost à l'impact : plus grande accélération donnée à la bille.
+        return baseSpeed * Mathf.Max(1f, impactBoostMultiplier);
     }
 
     private IEnumerator MoveOverTime(Vector3 from, Vector3 to, float duration)
