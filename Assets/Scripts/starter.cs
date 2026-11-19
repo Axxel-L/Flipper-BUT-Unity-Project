@@ -45,7 +45,7 @@ public class SlingshotMover : MonoBehaviour
     [Tooltip("Multiplie la vitesse donnée à la bille au moment de l'impact (1 = inchangé).\n" +
              "S'applique que 'randomizeLaunch' soit actif ou non.")]
     [Min(1f)]
-    public float impactBoostMultiplier = 5f;
+    public float impactBoostMultiplier = 10f;
 
     [Header("Variation contrôlée des tirs")]
     [Tooltip("Ajoute une variation légère à chaque tir pour éviter une trajectoire identique.")]
