@@ -12,6 +12,7 @@ public class Slingshot : MonoBehaviour
 
         Rigidbody rb = collision.rigidbody;
         if (rb == null) return;
+        if (collision.contactCount == 0) return;
 
         PinballScore.Add(50);
 
