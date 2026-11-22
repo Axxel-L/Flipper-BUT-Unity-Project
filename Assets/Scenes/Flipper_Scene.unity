@@ -4030,7 +4030,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BumperPhysics
   minimumSpeed: 7.5
-  impactSpeedBoost: 5
+  impactSpeedBoost: 7
   energyRetention: 1.08
   radialImpulse: 2.2
   tangentDeflection: 0.12
@@ -4778,7 +4778,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9dcff20ae30be407a87760ba5b2bfafa, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -10.48
+      value: -9.56
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9dcff20ae30be407a87760ba5b2bfafa, type: 3}
       propertyPath: m_LocalRotation.w
