@@ -15,7 +15,7 @@ public sealed class BumperPhysics : MonoBehaviour
     [Min(0f)]
     [SerializeField] private float minimumSpeed = 7.5f;
     [Min(0f)]
-    [SerializeField] private float impactSpeedBoost = 2f;
+    [SerializeField] private float impactSpeedBoost = 5f;
     [Range(0f, 1.5f)]
     [SerializeField] private float energyRetention = 1.08f;
     [Min(0f)]
