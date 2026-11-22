@@ -138,6 +138,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::IUTBumper
   speed: 20
   ballTag: Ball
+  solidSideWorldNormal: {x: 0, y: 0, z: 1}
+  sideTolerance: 0.1
   hitSound: {fileID: 0}
 --- !u!65 &87916616
 BoxCollider:
