@@ -13,6 +13,8 @@ public class Slingshot : MonoBehaviour
         Rigidbody rb = collision.rigidbody;
         if (rb == null) return;
 
+        PinballScore.Add(50);
+
         Vector3 dir;
         if (useSurfaceNormal)
         {

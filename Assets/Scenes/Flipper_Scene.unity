@@ -136,11 +136,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95de0cc3593c0ed4ba5c426eec617b21, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::IUTBumper
-  speed: 20
-  ballTag: Ball
-  solidSideWorldNormal: {x: 0, y: 0, z: 1}
-  sideTolerance: 0.1
-  hitSound: {fileID: 0}
 --- !u!65 &87916616
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3730,7 +3725,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BumperPhysics
   minimumSpeed: 7.5
-  impactSpeedBoost: 2
+  impactSpeedBoost: 5
   energyRetention: 1.08
   radialImpulse: 2.2
   tangentDeflection: 0.12
@@ -3978,7 +3973,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BumperPhysics
   minimumSpeed: 7.5
-  impactSpeedBoost: 2
+  impactSpeedBoost: 5
   energyRetention: 1.08
   radialImpulse: 2.2
   tangentDeflection: 0.12
@@ -4035,7 +4030,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BumperPhysics
   minimumSpeed: 7.5
-  impactSpeedBoost: 2
+  impactSpeedBoost: 5
   energyRetention: 1.08
   radialImpulse: 2.2
   tangentDeflection: 0.12

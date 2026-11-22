@@ -102,6 +102,7 @@ public sealed class BumperPhysics : MonoBehaviour
         }
 
         lastContacts[ball] = Time.time;
+        PinballScore.Add(100);
 
         Vector3 normal = ball.worldCenterOfMass - transform.position;
         normal.y = 0f;
