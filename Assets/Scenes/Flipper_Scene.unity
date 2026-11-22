@@ -1554,7 +1554,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dc2580f2a340046e187ac9104fefe5dc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 901306149}
   m_SourcePrefab: {fileID: 100100000, guid: dc2580f2a340046e187ac9104fefe5dc, type: 3}
 --- !u!1 &526223154
 GameObject:
@@ -2267,6 +2270,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 180.001, z: 0}
+--- !u!1 &901306147 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: dc2580f2a340046e187ac9104fefe5dc, type: 3}
+  m_PrefabInstance: {fileID: 512567227}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &901306149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 901306147}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed64e5ec9fda1f84cbf1faaa684ccba2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Slingshot
+  ballTag: Ball
+  force: 12
+  useSurfaceNormal: 1
 --- !u!1 &933601711
 GameObject:
   m_ObjectHideFlags: 0
@@ -4066,7 +4089,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: dc2580f2a340046e187ac9104fefe5dc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1878832705}
   m_SourcePrefab: {fileID: 100100000, guid: dc2580f2a340046e187ac9104fefe5dc, type: 3}
 --- !u!1001 &1864357874
 PrefabInstance:
@@ -4141,6 +4167,26 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 66aabab34fb904807b63a2b7ef170ab7, type: 3}
+--- !u!1 &1878832703 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: dc2580f2a340046e187ac9104fefe5dc, type: 3}
+  m_PrefabInstance: {fileID: 1831480829}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1878832705
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1878832703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed64e5ec9fda1f84cbf1faaa684ccba2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Slingshot
+  ballTag: Ball
+  force: 12
+  useSurfaceNormal: 1
 --- !u!1 &1937465163
 GameObject:
   m_ObjectHideFlags: 0
