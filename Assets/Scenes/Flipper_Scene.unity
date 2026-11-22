@@ -138,10 +138,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::IUTBumper
   speed: 20
   ballTag: Ball
-  fullRandom: 0
-  maxAngle: 75
-  minSpeedVariation: 0.8
-  maxSpeedVariation: 1.2
   hitSound: {fileID: 0}
 --- !u!65 &87916616
 BoxCollider:
@@ -2291,7 +2287,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Slingshot
   ballTag: Ball
-  force: 20
+  force: 15
   useSurfaceNormal: 1
 --- !u!64 &901306150
 MeshCollider:
@@ -4213,7 +4209,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Slingshot
   ballTag: Ball
-  force: 20
+  force: 15
   useSurfaceNormal: 1
 --- !u!64 &1878832706
 MeshCollider:
