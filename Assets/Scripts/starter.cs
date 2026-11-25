@@ -30,38 +30,37 @@ public class SlingshotMover : MonoBehaviour
     public bool optimizeBallMotion = true;
 
     [Header("Impulsion donnée à la bille")]
-    [Tooltip("Vitesse de sortie de la bille en m/s, donnée en une seule impulsion (indépendant de la masse).\n" +
-             "À garder au-dessus de la vitesse du starter (punchDistance / punchDuration).")]
-    public float launchSpeed = 750f;
+    [Tooltip("Vitesse de sortie de la bille en m/s quand la variation aléatoire est désactivée.\n" +
+             "Donnée en une seule impulsion (indépendante de la masse).")]
+    public float launchSpeed = 54f;
 
-    [Tooltip("Vrai = la bille sort exactement à 'launchSpeed'.\n" +
-             "Faux = 'launchSpeed' s'ajoute à la vitesse déjà acquise pendant la poussée.")]
+    [Tooltip("Vrai = la bille sort exactement à la vitesse tirée.\n" +
+             "Faux = la vitesse tirée s'ajoute à celle déjà acquise pendant la poussée.")]
     public bool overrideBallVelocity = true;
 
-    [Tooltip("Écrit dans la Console la vitesse donnée à la bille (utile pour régler launchSpeed).")]
+    [Tooltip("Écrit dans la Console la vitesse donnée à la bille (utile pour régler les vitesses).")]
     public bool logLaunch = false;
-
-    [Header("Boost à l'impact")]
-    [Tooltip("Multiplie la vitesse donnée à la bille au moment de l'impact (1 = inchangé).\n" +
-             "S'applique que 'randomizeLaunch' soit actif ou non.")]
-    [Min(1f)]
-    public float impactBoostMultiplier = 10f;
 
     [Header("Variation contrôlée des tirs")]
     [Tooltip("Ajoute une variation légère à chaque tir pour éviter une trajectoire identique.")]
     public bool randomizeLaunch = true;
 
-    [Tooltip("Vitesse minimale réellement appliquée, en m/s (avant le boost à l'impact).")]
+    [Tooltip("Vitesse minimale du tir, en m/s.")]
     [Min(0f)]
-    public float minimumLaunchSpeed = 25f;
+    public float minimumLaunchSpeed = 46f;
 
-    [Tooltip("Vitesse maximale réellement appliquée, en m/s (avant le boost à l'impact).")]
+    [Tooltip("Vitesse maximale du tir, en m/s.")]
     [Min(0f)]
-    public float maximumLaunchSpeed = 31f;
+    public float maximumLaunchSpeed = 58f;
+
+    [Tooltip("Biais du tirage : plus la valeur est basse, plus les tirs sont souvent proches du maximum.\n" +
+             "0.65 = 65 % de chances d'être au-dessus du milieu de la plage.")]
+    [Range(0.1f, 1f)]
+    public float launchRandomBias = 0.65f;
 
     [Tooltip("Écart angulaire maximal du tir, dans le plan du flipper.")]
     [Range(0f, 20f)]
-    public float maximumLaunchAngle = 8f;
+    public float maximumLaunchAngle = 4f;
 
     [Header("Phase 1 : recul (avant le tir)")]
     [Tooltip("Distance du léger recul, en sens inverse de 'direction'")]
@@ -157,6 +156,11 @@ public class SlingshotMover : MonoBehaviour
 
     void Update()
     {
+        if (PinballGameManager.Instance != null && !PinballGameManager.Instance.CanLaunch)
+        {
+            return;
+        }
+
         bool launchPressed = useBoardButton && launchAction != null && launchAction.WasPressedThisFrame();
 
         // Keyboard.current peut être null si aucun clavier n'est détecté
@@ -266,15 +270,12 @@ public class SlingshotMover : MonoBehaviour
         // ForceMode.VelocityChange : impulsion exprimée en vitesse (m/s), indépendante de la masse.
         ball.AddForce(launchDirection * launchVelocity, ForceMode.VelocityChange);
 
-        Debug.Log(
-            $"[Starter][Diagnostic] Tir de '{ball.name}' à t={Time.time:F3} : " +
-            $"position={ball.position}, direction={launchDirection}, " +
-            $"impulsion={launchVelocity:F2} m/s (boost x{impactBoostMultiplier:F2}), vitesse={ball.linearVelocity}", this);
-
         if (logLaunch)
         {
             float speed = Vector3.Dot(ball.linearVelocity, launchDirection);
-            Debug.Log($"[Starter] Impulsion donnée à '{ball.name}' : {speed:F2} m/s le long de {launchDirection}", this);
+            Debug.Log(
+                $"[Starter] Tir de '{ball.name}' : impulsion={launchVelocity:F2} m/s, " +
+                $"vitesse réelle={speed:F2} m/s, direction={launchDirection}", this);
         }
     }
 
@@ -302,21 +303,18 @@ public class SlingshotMover : MonoBehaviour
 
     private float GetLaunchSpeed()
     {
-        float baseSpeed;
-
         if (!randomizeLaunch)
         {
-            baseSpeed = launchSpeed;
-        }
-        else
-        {
-            float minimum = Mathf.Min(minimumLaunchSpeed, maximumLaunchSpeed);
-            float maximum = Mathf.Max(minimumLaunchSpeed, maximumLaunchSpeed);
-            baseSpeed = Random.Range(minimum, maximum);
+            return Mathf.Max(0f, launchSpeed);
         }
 
-        // Boost à l'impact : plus grande accélération donnée à la bille.
-        return baseSpeed * Mathf.Max(1f, impactBoostMultiplier);
+        float minimum = Mathf.Min(minimumLaunchSpeed, maximumLaunchSpeed);
+        float maximum = Mathf.Max(minimumLaunchSpeed, maximumLaunchSpeed);
+
+        // Tirage biaisé vers le haut : la bille part fort la plupart du temps,
+        // tout en gardant une variation pour ne pas rejouer la même trajectoire.
+        float t = Mathf.Pow(Random.value, Mathf.Clamp(launchRandomBias, 0.1f, 1f));
+        return Mathf.Lerp(minimum, maximum, t);
     }
 
     private IEnumerator MoveOverTime(Vector3 from, Vector3 to, float duration)

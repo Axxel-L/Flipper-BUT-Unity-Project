@@ -16,30 +16,23 @@ public sealed class BallCollisionDiagnostics : MonoBehaviour
     private float lastStuckLog = -Mathf.Infinity;
     private readonly HashSet<Collider> activeContacts = new HashSet<Collider>();
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Install()
-    {
-        GameObject[] balls = GameObject.FindGameObjectsWithTag("Ball");
-        for (int i = 0; i < balls.Length; i++)
-        {
-            if (balls[i].GetComponent<BallCollisionDiagnostics>() == null)
-            {
-                balls[i].AddComponent<BallCollisionDiagnostics>();
-            }
-        }
-    }
+    [Tooltip("Active les journaux détaillés (coûteux). À laisser désactivé en jeu.")]
+    [SerializeField] private bool verbose = false;
 
     private void Awake()
     {
         body = GetComponent<Rigidbody>();
-        Debug.Log($"[Bille][Diagnostic] Démarrage : position={transform.position}, " +
-            $"vitesse={(body != null ? body.linearVelocity : Vector3.zero)}, " +
-            $"colliders={GetComponentsInChildren<Collider>(true).Length}", this);
+        if (verbose)
+        {
+            Debug.Log($"[Bille][Diagnostic] Démarrage : position={transform.position}, " +
+                $"vitesse={(body != null ? body.linearVelocity : Vector3.zero)}, " +
+                $"colliders={GetComponentsInChildren<Collider>(true).Length}", this);
+        }
     }
 
     private void FixedUpdate()
     {
-        if (body == null)
+        if (!verbose || body == null)
         {
             return;
         }
@@ -74,7 +67,10 @@ public sealed class BallCollisionDiagnostics : MonoBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         activeContacts.Add(collision.collider);
-        LogCollision("ENTRÉE", collision);
+        if (verbose)
+        {
+            LogCollision("ENTRÉE", collision);
+        }
     }
 
     private void OnCollisionStay(Collision collision)
@@ -85,13 +81,21 @@ public sealed class BallCollisionDiagnostics : MonoBehaviour
     private void OnCollisionExit(Collision collision)
     {
         activeContacts.Remove(collision.collider);
-        Debug.Log(
-            $"[Bille][Diagnostic] SORTIE collision avec '{GetHierarchyPath(collision.collider.transform)}' " +
-            $"à t={Time.time:F3}, vitesse={body.linearVelocity.magnitude:F3}", this);
+        if (verbose)
+        {
+            Debug.Log(
+                $"[Bille][Diagnostic] SORTIE collision avec '{GetHierarchyPath(collision.collider.transform)}' " +
+                $"à t={Time.time:F3}, vitesse={body.linearVelocity.magnitude:F3}", this);
+        }
     }
 
     private void OnTriggerEnter(Collider other)
     {
+        if (!verbose)
+        {
+            return;
+        }
+
         Debug.LogWarning(
             $"[Bille][Diagnostic] ENTRÉE trigger '{GetHierarchyPath(other.transform)}' " +
             $"à t={Time.time:F3}, position={transform.position}", other);
@@ -99,6 +103,11 @@ public sealed class BallCollisionDiagnostics : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
+        if (!verbose)
+        {
+            return;
+        }
+
         Debug.Log(
             $"[Bille][Diagnostic] SORTIE trigger '{GetHierarchyPath(other.transform)}' " +
             $"à t={Time.time:F3}", other);
