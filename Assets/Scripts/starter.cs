@@ -14,6 +14,16 @@ public class SlingshotMover : MonoBehaviour
     private const string StarterModelResourcePath =
         "StarterModel/Meshy_AI_Jagermeister_Bottle_20261126_texture_obj/Meshy_AI_Jagermeister_Bottle_20261126_texture";
 
+    [Header("Modèle 3D")]
+    [Tooltip("Affiche le starter dès le chargement de la scène, avant le premier tir.")]
+    public bool showStarterModel = true;
+
+    [Tooltip("Échelle du modèle 3D.")]
+    public Vector3 starterModelScale = new Vector3(0.65f, 0.4f, 0.4f);
+
+    [Tooltip("Décalage du modèle par rapport au starter.")]
+    public Vector3 starterModelOffset = Vector3.zero;
+
     [Header("Axe (X = rouge dans la scène)")]
     [Tooltip("Direction locale du déplacement ET de l'impulsion. Pour l'axe rouge (X) : (1,0,0)")]
     public Vector3 direction = Vector3.right;
@@ -112,10 +122,11 @@ public class SlingshotMover : MonoBehaviour
         if (model == null)
             return;
 
-        model.localPosition = Vector3.zero;
         model.localRotation = Quaternion.FromToRotation(Vector3.up, DirNormalized)
             * Quaternion.Euler(0f, -90f, 0f);
-        model.localScale = new Vector3(1.1f, 0.7f, 0.7f);
+        model.localPosition = starterModelOffset;
+        model.localScale = starterModelScale;
+        model.gameObject.SetActive(showStarterModel);
     }
 
     /// <summary>Direction du tir exprimée en espace monde (celle de l'impulsion).</summary>
@@ -131,6 +142,14 @@ public class SlingshotMover : MonoBehaviour
         // seule autorité sur la position du starter.
         Rigidbody self = GetComponent<Rigidbody>();
         if (self != null) self.isKinematic = true;
+
+        foreach (MeshRenderer blockRenderer in GetComponentsInChildren<MeshRenderer>(true))
+        {
+            if (blockRenderer.transform == transform)
+            {
+                blockRenderer.enabled = false;
+            }
+        }
 
         plungerCollider = GetComponent<Collider>();
         if (plungerCollider == null)
@@ -168,6 +187,7 @@ public class SlingshotMover : MonoBehaviour
     {
         // Mémorise la position de repos au démarrage
         startPosition = transform.localPosition;
+        AddStarterModel();
     }
 
     void Update()
@@ -418,10 +438,16 @@ public class SlingshotMover : MonoBehaviour
         }
 
         model.name = "StarterBottle";
-        model.transform.localPosition = Vector3.zero;
+        model.SetActive(showStarterModel);
+        model.transform.localPosition = starterModelOffset;
         model.transform.localRotation = Quaternion.FromToRotation(Vector3.up, DirNormalized)
             * Quaternion.Euler(0f, -90f, 0f);
-        model.transform.localScale = new Vector3(1.1f, 0.7f, 0.7f);
+        model.transform.localScale = starterModelScale;
+
+        foreach (Renderer modelRenderer in model.GetComponentsInChildren<Renderer>(true))
+        {
+            modelRenderer.enabled = true;
+        }
 
         foreach (Collider modelCollider in model.GetComponentsInChildren<Collider>(true))
         {

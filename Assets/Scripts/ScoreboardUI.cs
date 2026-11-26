@@ -408,17 +408,17 @@ public sealed class ScoreboardUI : MonoBehaviour
             screenRect.center.y / Mathf.Max(1f, camera != null ? camera.pixelHeight : ReferenceHeight));
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = Vector2.zero;
-        rect.sizeDelta = new Vector2(height / scale, width / scale);
+        rect.sizeDelta = new Vector2(height / scale * 0.9f, width / scale * 0.9f);
         rect.localEulerAngles = new Vector3(0f, 0f, -90f);
 
         bool scorePlaque = plaque.id == "top1" || plaque.id == "top2";
-        text.fontSize = big
-            ? referenceWidth * 0.68f
-            : scorePlaque
-                ? referenceWidth * 0.68f
-                : referenceWidth * 0.58f;
+        float maxFontSize = referenceWidth * (big ? 0.34f : scorePlaque ? 0.28f : 0.32f);
+        text.fontSize = maxFontSize;
+        text.fontSizeMin = Mathf.Min(maxFontSize, Mathf.Max(8f, maxFontSize * 0.35f));
+        text.fontSizeMax = maxFontSize;
+        text.enableAutoSizing = true;
         text.alignment = TextAlignmentOptions.Center;
-        text.overflowMode = TextOverflowModes.Overflow;
+        text.overflowMode = TextOverflowModes.Truncate;
         text.textWrappingMode = TextWrappingModes.NoWrap;
         text.lineSpacing = big ? -8f : -4f;
         text.characterSpacing = big ? -1.5f : 1f;
