@@ -1,27 +1,39 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using System.Collections;
+using UnityEngine.InputSystem.Controls;
 
 /// <summary>
-/// Starter de flipper.
+/// Starter de flipper (bouteille utilisée comme lanceur).
 ///
-/// Le starter joue une animation en 3 temps (recul -> coup -> retour) et, s'il touche la bille
-/// pendant le coup, il lui applique une véritable impulsion sur l'axe X (Rigidbody.AddForce)
-/// au lieu de compter uniquement sur le choc physique.
+/// Maintenir la touche / le bouton de la plaque pour reculer la bouteille et charger le tir,
+/// relâcher pour propulser la bille. Plus la charge est longue, plus la bille part vite.
+/// La position reculée de la bouteille sert directement d'indicateur de puissance.
+///
+/// Le déplacement est piloté par une petite machine à états dans Update :
+/// aucune allocation par image, aucune coroutine, aucun accès physique inutile.
 /// </summary>
 public class SlingshotMover : MonoBehaviour
 {
     private const string StarterModelResourcePath =
         "StarterModel/Meshy_AI_Jagermeister_Bottle_20261126_texture_obj/Meshy_AI_Jagermeister_Bottle_20261126_texture";
 
+    private enum ShotState
+    {
+        Idle,
+        Pulling,
+        Charging,
+        Punching,
+        Returning
+    }
+
     [Header("Modèle 3D")]
     [Tooltip("Affiche le starter dès le chargement de la scène, avant le premier tir.")]
     public bool showStarterModel = true;
 
-    [Tooltip("Échelle du modèle 3D.")]
-    public Vector3 starterModelScale = new Vector3(0.65f, 0.4f, 0.4f);
+    [Tooltip("Échelle locale du modèle. Plus grand = bouteille plus visible.")]
+    public Vector3 starterModelScale = new Vector3(1.25f, 0.78f, 0.78f);
 
-    [Tooltip("Décalage du modèle par rapport au starter.")]
+    [Tooltip("Décalage du modèle par rapport au starter (local).")]
     public Vector3 starterModelOffset = Vector3.zero;
 
     [Header("Axe (X = rouge dans la scène)")]
@@ -29,83 +41,110 @@ public class SlingshotMover : MonoBehaviour
     public Vector3 direction = Vector3.right;
 
     [Tooltip("Vrai = 'direction' est exprimée dans l'espace local du starter (suit sa rotation).\n" +
-             "Faux = 'direction' est une direction monde (pratique pour viser un axe précis).")]
+             "Faux = 'direction' est une direction monde.")]
     public bool useLocalSpace = true;
 
     [Header("Bille")]
-    [Tooltip("Rigidbody de la bille à propulser : glisse l'objet 'Bille' dans ce champ.\n" +
-             "Laisser vide = le script prend le Rigidbody le plus proche au démarrage.")]
+    [Tooltip("Rigidbody de la bille à propulser. Vide = le Rigidbody le plus proche au démarrage.")]
     public Rigidbody ball;
 
-    [Tooltip("Optimise le Rigidbody de la bille pour une vitesse élevée : interpolation " +
-             "(mouvement fluide à l'écran) et détection continue des collisions " +
-             "(sans quoi la bille traverse les murs à 70 m/s).")]
+    [Tooltip("Optimise le Rigidbody de la bille pour les hautes vitesses (interpolation + détection continue).")]
     public bool optimizeBallMotion = true;
 
-    [Header("Impulsion donnée à la bille")]
-    [Tooltip("Vitesse de sortie de la bille en m/s quand la variation aléatoire est désactivée.\n" +
-             "Donnée en une seule impulsion (indépendante de la masse).")]
+    [Header("Charge (maintenir pour armer)")]
+    [Tooltip("Vrai = tir chargé (maintenir puis relâcher). Faux = ancien tir automatique à puissance fixe.")]
+    public bool useCharge = true;
+
+    [Tooltip("Temps, en secondes, pour atteindre la charge maximale.")]
+    [Min(0.05f)]
+    public float fullChargeTime = 0.9f;
+
+    [Tooltip("Courbe de conversion charge -> vitesse. 1 = linéaire, > 1 = plus de précision à faible charge.")]
+    [Range(0.2f, 3f)]
+    public float chargePowerCurve = 1f;
+
+    [Header("Puissance du tir")]
+    [Tooltip("Vitesse (m/s) pour un appui très court (charge minimale).")]
+    [Min(0f)]
+    public float minimumLaunchSpeed = 20f;
+
+    [Tooltip("Vitesse (m/s) à charge maximale.")]
+    [Min(0f)]
+    public float maximumLaunchSpeed = 62f;
+
+    [Tooltip("Vitesse fixe utilisée quand le tir chargé est désactivé.")]
+    [Min(0f)]
     public float launchSpeed = 54f;
 
-    [Tooltip("Vrai = la bille sort exactement à la vitesse tirée.\n" +
-             "Faux = la vitesse tirée s'ajoute à celle déjà acquise pendant la poussée.")]
+    [Tooltip("Vrai = la bille sort exactement à la vitesse calculée.\n" +
+             "Faux = la vitesse calculée s'ajoute à celle déjà acquise pendant la poussée.")]
     public bool overrideBallVelocity = true;
 
-    [Tooltip("Écrit dans la Console la vitesse donnée à la bille (utile pour régler les vitesses).")]
+    [Tooltip("Écrit dans la Console la vitesse donnée à la bille.")]
     public bool logLaunch = false;
 
     [Header("Variation contrôlée des tirs")]
     [Tooltip("Ajoute une variation légère à chaque tir pour éviter une trajectoire identique.")]
     public bool randomizeLaunch = true;
 
-    [Tooltip("Vitesse minimale du tir, en m/s.")]
-    [Min(0f)]
-    public float minimumLaunchSpeed = 46f;
-
-    [Tooltip("Vitesse maximale du tir, en m/s.")]
-    [Min(0f)]
-    public float maximumLaunchSpeed = 58f;
-
-    [Tooltip("Biais du tirage : plus la valeur est basse, plus les tirs sont souvent proches du maximum.\n" +
-             "0.65 = 65 % de chances d'être au-dessus du milieu de la plage.")]
-    [Range(0.1f, 1f)]
-    public float launchRandomBias = 0.65f;
+    [Tooltip("Variation aléatoire de vitesse, en pourcentage (±).")]
+    [Range(0f, 0.25f)]
+    public float launchSpeedJitter = 0.03f;
 
     [Tooltip("Écart angulaire maximal du tir, dans le plan du flipper.")]
     [Range(0f, 20f)]
-    public float maximumLaunchAngle = 4f;
+    public float maximumLaunchAngle = 3f;
 
-    [Header("Phase 1 : recul (avant le tir)")]
-    [Tooltip("Distance du léger recul, en sens inverse de 'direction'")]
-    public float pullbackDistance = 0.5f;
+    [Header("Phase 1 : recul")]
+    [Tooltip("Distance de recul maximale, en sens inverse de 'direction' (sert aussi de visuel de charge).")]
+    [Min(0f)]
+    public float pullbackDistance = 0.8f;
 
-    [Tooltip("Temps pour reculer")]
-    public float pullbackDuration = 0.06f;
+    [Tooltip("Durée du recul quand le tir chargé est désactivé.")]
+    [Min(0f)]
+    public float pullbackDuration = 0.08f;
 
     [Header("Phase 2 : coup (projection de la bille)")]
     [Tooltip("Distance parcourue vers l'avant, dans le sens de 'direction'")]
+    [Min(0f)]
     public float punchDistance = 1f;
 
     [Tooltip("Temps pour aller jusqu'au bout du coup (très court = coup sec et rapide)")]
+    [Min(0f)]
     public float punchDuration = 0.1f;
 
     [Header("Phase 3 : retour à la position initiale")]
     [Tooltip("Temps pour revenir à la position de repos")]
+    [Min(0f)]
     public float returnDuration = 0.15f;
 
     [Header("Input")]
     [Tooltip("Touche de secours, pour lancer sans la plaque branchée (nouveau Input System)")]
     public Key triggerKey = Key.Space;
 
-    [Tooltip("Lance la bille avec le bouton de la plaque xin-mo (action LaunchBall de PinballControls)")]
+    [Tooltip("Utilise le bouton de la plaque xin-mo (action LaunchBall de PinballControls)")]
     public bool useBoardButton = true;
 
+    private Transform cachedTransform;
     private Vector3 startPosition;
-    private Coroutine currentRoutine;
+    private Vector3 localDir;
+    private Vector3 worldDir;
+
+    private ShotState state = ShotState.Idle;
+    private float poseTimer;
+    private float charge;
+    private float shotPower;
+    private bool touchedBall;
     private bool launchedThisShot;
+    private bool previousHeld;
+
+    private Vector3 poseFrom;
+    private Vector3 poseTo;
 
     private PinballControls board;
     private InputAction launchAction;
+    private Keyboard cachedKeyboard;
+    private KeyControl triggerControl;
 
     private Collider plungerCollider;
     private Collider ballCollider;
@@ -129,23 +168,18 @@ public class SlingshotMover : MonoBehaviour
         model.gameObject.SetActive(showStarterModel);
     }
 
-    /// <summary>Direction du tir exprimée en espace monde (celle de l'impulsion).</summary>
-    private Vector3 WorldDir
+    private void Awake()
     {
-        get { return useLocalSpace ? transform.TransformDirection(DirNormalized) : DirNormalized; }
-    }
+        cachedTransform = transform;
 
-    void Awake()
-    {
-        // Le starter est déplacé par script : en "dynamic", Unity téléporte un corps géré par le
-        // solveur physique (contacts approximatifs, à-coups). En kinematic, le transform est la
-        // seule autorité sur la position du starter.
+        // Le starter est déplacé par script : en kinematic, le transform est la seule
+        // autorité sur sa position (pas de téléportation par le solveur physique).
         Rigidbody self = GetComponent<Rigidbody>();
         if (self != null) self.isKinematic = true;
 
         foreach (MeshRenderer blockRenderer in GetComponentsInChildren<MeshRenderer>(true))
         {
-            if (blockRenderer.transform == transform)
+            if (blockRenderer.transform == cachedTransform)
             {
                 blockRenderer.enabled = false;
             }
@@ -160,22 +194,21 @@ public class SlingshotMover : MonoBehaviour
         AddStarterModel();
         ResolveBall();
 
-        // Bouton de la plaque : action LaunchBall (<HID::xin-mo.com Xinmotek Controller>/button4)
         board = new PinballControls();
         launchAction = board.GamePlayPF.LaunchBall;
     }
 
-    void OnEnable()
+    private void OnEnable()
     {
         if (board != null) board.GamePlayPF.Enable();
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
         if (board != null) board.GamePlayPF.Disable();
     }
 
-    void OnDestroy()
+    private void OnDestroy()
     {
         if (board == null) return;
 
@@ -183,102 +216,221 @@ public class SlingshotMover : MonoBehaviour
         board.Dispose();
     }
 
-    void Start()
+    private void Start()
     {
-        // Mémorise la position de repos au démarrage
-        startPosition = transform.localPosition;
-        AddStarterModel();
+        startPosition = cachedTransform.localPosition;
+        ApplyModelPose();
     }
 
-    void Update()
+    private void Update()
     {
-        if (PinballGameManager.Instance != null && !PinballGameManager.Instance.CanLaunch)
+        float dt = Time.deltaTime;
+
+        bool canLaunch = ComputeCanLaunch();
+        bool held = ReadHeld();
+        bool pressedEdge = held && !previousHeld;
+        bool releasedEdge = !held && previousHeld;
+        previousHeld = held;
+
+        switch (state)
         {
-            return;
+            case ShotState.Idle:
+                if (pressedEdge && canLaunch)
+                {
+                    if (useCharge)
+                    {
+                        charge = 0f;
+                        state = ShotState.Charging;
+                        ApplyChargePose();
+                    }
+                    else
+                    {
+                        BeginAutoPull();
+                    }
+                }
+                break;
+
+            case ShotState.Pulling:
+                AdvancePose(dt, ref poseTimer, poseFrom, poseTo, pullbackDuration,
+                    ShotState.Punching, 1f);
+                break;
+
+            case ShotState.Charging:
+                if (!canLaunch)
+                {
+                    BeginReturn();
+                    break;
+                }
+
+                charge = Mathf.Min(1f, charge + dt / Mathf.Max(0.05f, fullChargeTime));
+                ApplyChargePose();
+
+                if (releasedEdge)
+                {
+                    BeginPunch(charge);
+                }
+                break;
+
+            case ShotState.Punching:
+                AdvancePunch(dt);
+                break;
+
+            case ShotState.Returning:
+                AdvancePose(dt, ref poseTimer, poseFrom, poseTo, returnDuration,
+                    ShotState.Idle, 0f);
+                break;
         }
-
-        bool launchPressed = useBoardButton && launchAction != null && launchAction.WasPressedThisFrame();
-
-        // Keyboard.current peut être null si aucun clavier n'est détecté
-        if (!launchPressed && Keyboard.current != null)
-        {
-            launchPressed = Keyboard.current[triggerKey].wasPressedThisFrame;
-        }
-
-        if (launchPressed) TriggerMove();
     }
 
     public void TriggerMove()
     {
-        // Un seul tir à la fois : on ignore l'appui tant que l'animation n'est pas terminée.
-        if (currentRoutine != null) return;
+        if (state != ShotState.Idle) return;
 
-        // Si la bille a été détruite/remplacée, on la retrouve avant de tirer.
         if (ball == null) ResolveBall();
 
-        currentRoutine = StartCoroutine(MoveRoutine());
+        if (useCharge)
+        {
+            charge = 1f;
+            BeginPunch(charge);
+        }
+        else
+        {
+            BeginAutoPull();
+        }
     }
 
-    private IEnumerator MoveRoutine()
+    private bool ComputeCanLaunch()
     {
-        Vector3 localDir = DirNormalized;   // déplacement : espace local du starter
-        Vector3 worldDir = WorldDir;        // impulsion   : espace monde
+        PinballGameManager manager = PinballGameManager.Instance;
+        return manager == null || manager.CanLaunch;
+    }
 
-        Vector3 pulledBackPosition = startPosition - localDir * pullbackDistance;
-        Vector3 punchedPosition = startPosition + localDir * punchDistance;
+    private bool ReadHeld()
+    {
+        if (useBoardButton && launchAction != null && launchAction.IsPressed())
+        {
+            return true;
+        }
 
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != cachedKeyboard)
+        {
+            cachedKeyboard = keyboard;
+            triggerControl = keyboard != null ? keyboard[triggerKey] : null;
+        }
+
+        return triggerControl != null && triggerControl.isPressed;
+    }
+
+    private void ApplyChargePose()
+    {
+        cachedTransform.localPosition = startPosition - localDir * (pullbackDistance * charge);
+    }
+
+    private void BeginAutoPull()
+    {
+        poseFrom = cachedTransform.localPosition;
+        poseTo = startPosition - localDir * pullbackDistance;
+        poseTimer = 0f;
+        state = ShotState.Pulling;
+    }
+
+    private void BeginPunch(float power)
+    {
+        shotPower = Mathf.Clamp01(power);
+        touchedBall = false;
         launchedThisShot = false;
 
-        // Phase 1 : léger recul
-        yield return MoveOverTime(transform.localPosition, pulledBackPosition, pullbackDuration);
-
-        // Phase 2 : coup vers l'avant (la bille est poussée, puis reçoit son impulsion)
-        yield return PunchRoutine(punchedPosition, worldDir);
-
-        // Phase 3 : retour à la position de repos
-        yield return MoveOverTime(transform.localPosition, startPosition, returnDuration);
-
-        currentRoutine = null;
+        poseFrom = cachedTransform.localPosition;
+        poseTo = startPosition + localDir * punchDistance;
+        poseTimer = 0f;
+        state = ShotState.Punching;
     }
 
-    private IEnumerator PunchRoutine(Vector3 punchedPosition, Vector3 worldDir)
+    private void AdvancePunch(float dt)
     {
-        Vector3 from = transform.localPosition;
-
-        // Sécurité : si duration = 0, on saute directement à la position finale
         if (punchDuration <= 0f)
         {
-            transform.localPosition = punchedPosition;
-            if (PlungerTouchesBall()) LaunchBall(worldDir);
-            yield break;
+            cachedTransform.localPosition = poseTo;
+            FinishPunch();
+            return;
         }
 
-        bool touchedBall = false;
-        float elapsed = 0f;
+        poseTimer += dt;
+        float t = Mathf.Clamp01(poseTimer / punchDuration);
+        cachedTransform.localPosition = Vector3.Lerp(poseFrom, poseTo, t);
 
-        while (elapsed < punchDuration)
+        if (!touchedBall && (PlungerTouchesBall() || PlungerCanReachBall()))
         {
-            elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / punchDuration);
-            transform.localPosition = Vector3.Lerp(from, punchedPosition, t);
-
-            // Mémorise un contact réel ou une bille suffisamment proche.
-            // Cette tolérance corrige les lancements ratés après une remise en jeu.
-            if (!touchedBall && (PlungerTouchesBall() || PlungerCanReachBall()))
-            {
-                touchedBall = true;
-            }
-
-            yield return null;
+            touchedBall = true;
         }
-        transform.localPosition = punchedPosition;
 
-        // Impulsion donnée quand le starter a fini de pousser : la vitesse de sortie de la bille
-        // est ainsi celle réglée, et non "poussée physique + impulsion".
-        if (touchedBall) LaunchBall(worldDir);
+        if (t >= 1f)
+        {
+            FinishPunch();
+        }
     }
 
-    /// <summary>Vrai si les colliders du starter et de la bille se recouvrent (détection géométrique).</summary>
+    private void FinishPunch()
+    {
+        cachedTransform.localPosition = poseTo;
+
+        if (touchedBall)
+        {
+            worldDir = useLocalSpace ? cachedTransform.TransformDirection(localDir) : localDir;
+            LaunchBall(worldDir);
+        }
+
+        BeginReturn();
+    }
+
+    private void BeginReturn()
+    {
+        poseFrom = cachedTransform.localPosition;
+        poseTo = startPosition;
+        poseTimer = 0f;
+        charge = 0f;
+        state = ShotState.Returning;
+    }
+
+    /// <summary>Avance une phase de déplacement et enchaîne sur l'état suivant.</summary>
+    private void AdvancePose(float dt, ref float timer, Vector3 from, Vector3 to,
+        float duration, ShotState nextState, float nextPower)
+    {
+        if (duration <= 0f)
+        {
+            cachedTransform.localPosition = to;
+            if (nextState == ShotState.Punching)
+            {
+                BeginPunch(nextPower);
+            }
+            else
+            {
+                state = nextState;
+            }
+            return;
+        }
+
+        timer += dt;
+        float t = Mathf.Clamp01(timer / duration);
+        cachedTransform.localPosition = Vector3.Lerp(from, to, t);
+
+        if (t >= 1f)
+        {
+            cachedTransform.localPosition = to;
+
+            if (nextState == ShotState.Punching)
+            {
+                BeginPunch(nextPower);
+            }
+            else
+            {
+                state = nextState;
+            }
+        }
+    }
+
+    /// <summary>Vrai si les colliders du starter et de la bille se recouvrent.</summary>
     private bool PlungerTouchesBall()
     {
         if (launchedThisShot) return false;
@@ -287,57 +439,53 @@ public class SlingshotMover : MonoBehaviour
         return plungerCollider.bounds.Intersects(ballCollider.bounds);
     }
 
-    /// <summary>
-    /// Détection tolérante pour les tirs suivants : elle évite qu'un court décalage
-    /// entre la bille et le starter fasse rater complètement l'impulsion.
-    /// </summary>
+    /// <summary>Détection tolérante pour ne pas rater l'impulsion sur un petit décalage.</summary>
     private bool PlungerCanReachBall()
     {
         if (launchedThisShot) return false;
         if (plungerCollider == null || ball == null) return false;
 
-        // 2 unités couvrent le recul, le rayon de la bille et la tolérance du mouvement.
         float reach = Mathf.Max(2f, punchDistance + 1f);
         float distanceSquared = plungerCollider.bounds.SqrDistance(ball.worldCenterOfMass);
         return distanceSquared <= reach * reach;
     }
 
     /// <summary>Donne son impulsion à la bille, le long de l'axe de tir.</summary>
-    private void LaunchBall(Vector3 worldDir)
+    private void LaunchBall(Vector3 baseDirection)
     {
         if (ball == null || launchedThisShot) return;
 
         launchedThisShot = true;
+        ball.WakeUp();
         ball.useGravity = true;
 
-        Vector3 launchDirection = GetLaunchDirection(worldDir);
-        float launchVelocity = GetLaunchSpeed();
+        Vector3 launchDirection = GetLaunchDirection(baseDirection);
+        float launchVelocity = GetLaunchSpeed(shotPower);
 
         if (overrideBallVelocity)
         {
-            // Le starter a poussé la bille physiquement pendant le coup : on annule la composante
-            // de vitesse déjà acquise le long de l'axe, sinon on obtiendrait "poussée + launchSpeed".
+            // Le starter a poussé la bille physiquement : on annule la composante de vitesse
+            // déjà acquise le long de l'axe pour ne pas obtenir "poussée + vitesse réglée".
             Vector3 velocity = ball.linearVelocity;
             velocity -= launchDirection * Vector3.Dot(velocity, launchDirection);
             ball.linearVelocity = velocity;
         }
 
-        // ForceMode.VelocityChange : impulsion exprimée en vitesse (m/s), indépendante de la masse.
+        // ForceMode.VelocityChange : vitesse (m/s) indépendante de la masse.
         ball.AddForce(launchDirection * launchVelocity, ForceMode.VelocityChange);
 
         if (logLaunch)
         {
-            float speed = Vector3.Dot(ball.linearVelocity, launchDirection);
             Debug.Log(
-                $"[Starter] Tir de '{ball.name}' : impulsion={launchVelocity:F2} m/s, " +
-                $"vitesse réelle={speed:F2} m/s, direction={launchDirection}", this);
+                $"[Starter] Tir de '{ball.name}' : charge={shotPower:P0}, vitesse={launchVelocity:F2} m/s, " +
+                $"direction={launchDirection}", this);
         }
     }
 
     private Vector3 GetLaunchDirection(Vector3 baseDirection)
     {
-        // Le Starter a la même inclinaison que le plateau : son "haut" est la normale de la table.
-        Vector3 boardNormal = transform.up;
+        // Le plateau est incliné : sa normale est le "haut" du starter.
+        Vector3 boardNormal = cachedTransform.up;
 
         Vector3 directionInPlane = Vector3.ProjectOnPlane(baseDirection, boardNormal);
         if (directionInPlane.sqrMagnitude < 0.0001f)
@@ -351,44 +499,32 @@ public class SlingshotMover : MonoBehaviour
             return directionInPlane;
         }
 
-        // Rotation autour de la normale du plateau = déviation en travers de la table
         float angle = Random.Range(-maximumLaunchAngle, maximumLaunchAngle);
         return Quaternion.AngleAxis(angle, boardNormal) * directionInPlane;
     }
 
-    private float GetLaunchSpeed()
+    private float GetLaunchSpeed(float power)
     {
-        if (!randomizeLaunch)
+        float speed;
+
+        if (!useCharge)
         {
-            return Mathf.Max(0f, launchSpeed);
+            speed = launchSpeed;
+        }
+        else
+        {
+            float minimum = Mathf.Min(minimumLaunchSpeed, maximumLaunchSpeed);
+            float maximum = Mathf.Max(minimumLaunchSpeed, maximumLaunchSpeed);
+            float t = Mathf.Pow(Mathf.Clamp01(power), Mathf.Max(0.01f, chargePowerCurve));
+            speed = Mathf.Lerp(minimum, maximum, t);
         }
 
-        float minimum = Mathf.Min(minimumLaunchSpeed, maximumLaunchSpeed);
-        float maximum = Mathf.Max(minimumLaunchSpeed, maximumLaunchSpeed);
-
-        // Tirage biaisé vers le haut : la bille part fort la plupart du temps,
-        // tout en gardant une variation pour ne pas rejouer la même trajectoire.
-        float t = Mathf.Pow(Random.value, Mathf.Clamp(launchRandomBias, 0.1f, 1f));
-        return Mathf.Lerp(minimum, maximum, t);
-    }
-
-    private IEnumerator MoveOverTime(Vector3 from, Vector3 to, float duration)
-    {
-        if (duration <= 0f)
+        if (randomizeLaunch && launchSpeedJitter > 0f)
         {
-            transform.localPosition = to;
-            yield break;
+            speed *= 1f + Random.Range(-launchSpeedJitter, launchSpeedJitter);
         }
 
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-            transform.localPosition = Vector3.Lerp(from, to, t);
-            yield return null;
-        }
-        transform.localPosition = to;
+        return Mathf.Max(0f, speed);
     }
 
     /// <summary>Récupère la bille : référence de l'Inspector, sinon le Rigidbody le plus proche.</summary>
@@ -403,8 +539,8 @@ public class SlingshotMover : MonoBehaviour
 
             if (optimizeBallMotion)
             {
-                // À 70 m/s (1,4 unité par pas physique), un Rigidbody sans interpolation avance
-                // par saccades à l'écran, et une détection discrète le fait traverser les murs.
+                // À haute vitesse, sans interpolation la bille avance par saccades,
+                // et sans détection continue elle traverse les murs.
                 ball.interpolation = RigidbodyInterpolation.Interpolate;
                 ball.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
             }
@@ -418,7 +554,7 @@ public class SlingshotMover : MonoBehaviour
 
     private void AddStarterModel()
     {
-        Transform existingModel = transform.Find("StarterBottle");
+        Transform existingModel = cachedTransform.Find("StarterBottle");
         GameObject model;
         if (existingModel != null)
         {
@@ -434,15 +570,11 @@ public class SlingshotMover : MonoBehaviour
                 return;
             }
 
-            model = Instantiate(modelPrefab, transform, false);
+            model = Instantiate(modelPrefab, cachedTransform, false);
         }
 
         model.name = "StarterBottle";
         model.SetActive(showStarterModel);
-        model.transform.localPosition = starterModelOffset;
-        model.transform.localRotation = Quaternion.FromToRotation(Vector3.up, DirNormalized)
-            * Quaternion.Euler(0f, -90f, 0f);
-        model.transform.localScale = starterModelScale;
 
         foreach (Renderer modelRenderer in model.GetComponentsInChildren<Renderer>(true))
         {
@@ -460,6 +592,22 @@ public class SlingshotMover : MonoBehaviour
         {
             originalRenderer.enabled = false;
         }
+
+        ApplyModelPose();
+    }
+
+    private void ApplyModelPose()
+    {
+        Transform model = cachedTransform.Find("StarterBottle");
+        if (model == null) return;
+
+        localDir = DirNormalized;
+        worldDir = useLocalSpace ? cachedTransform.TransformDirection(localDir) : localDir;
+
+        model.localRotation = Quaternion.FromToRotation(Vector3.up, localDir)
+            * Quaternion.Euler(0f, -90f, 0f);
+        model.localPosition = starterModelOffset;
+        model.localScale = starterModelScale;
     }
 
     /// <summary>Trouve le Rigidbody le plus proche (hors starter) quand la référence n'est pas assignée.</summary>
@@ -472,10 +620,10 @@ public class SlingshotMover : MonoBehaviour
         foreach (Rigidbody candidate in bodies)
         {
             if (candidate == null) continue;
-            if (candidate.transform == transform || candidate.transform.IsChildOf(transform)) continue;
+            if (candidate.transform == cachedTransform || candidate.transform.IsChildOf(cachedTransform)) continue;
             if (!candidate.CompareTag("Ball")) continue;
 
-            float distance = (candidate.position - transform.position).sqrMagnitude;
+            float distance = (candidate.position - cachedTransform.position).sqrMagnitude;
             if (distance < bestDistance)
             {
                 bestDistance = distance;
