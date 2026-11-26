@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: fde90b1536df7435cab52e87fe028bac
+guid: aef7df4ba54f4466eb69d2e59f00e239
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - Russo One
+  - Barlow
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0

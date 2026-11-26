@@ -302,7 +302,7 @@ public static class StDieForestBuilder
 
     private static void EnsureGameManager()
     {
-        PinballGameManager manager = Object.FindFirstObjectByType<PinballGameManager>();
+        PinballGameManager manager = Object.FindAnyObjectByType<PinballGameManager>();
         if (manager == null)
         {
             GameObject host = new GameObject("Flipper Game");

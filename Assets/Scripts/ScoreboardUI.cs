@@ -6,51 +6,42 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 /// <summary>
-/// HUD moderne du flipper : score, billes, combo, événement météo, tableau
-/// du backglass, popups de points, modale de fin de partie animée.
-/// L'interface est générée au lancement pour rester indépendante de la scène.
+/// Affiche toutes les informations dans l'image de score du backglass
+/// (score, meilleurs scores, joueur, billes et météo). Aucun HUD additionnel :
+/// seuls les retours d'impact et la modale de fin de partie restent en surimpression.
+/// La typographie et les ressorts suivent les principes Apple (hiérarchie,
+/// mouvement fluide, retenue).
 /// </summary>
 public sealed class ScoreboardUI : MonoBehaviour
 {
     private const float ReferenceWidth = 1205f;
     private const float ReferenceHeight = 678f;
-    private const float CardReference = 100f;
 
-    private static readonly Color Gold = new Color(1f, 0.82f, 0.42f, 1f);
-    private static readonly Color GoldSoft = new Color(0.94f, 0.74f, 0.36f, 1f);
+    private static readonly Color Gold = new Color(0.92f, 0.76f, 0.43f, 1f);
+    private static readonly Color GoldMuted = new Color(0.74f, 0.63f, 0.45f, 1f);
     private static readonly Color WarmWhite = new Color(1f, 0.97f, 0.9f, 1f);
-    private static readonly Color Muted = new Color(0.78f, 0.7f, 0.56f, 1f);
-    private static readonly Color StormBlue = new Color(0.6f, 0.82f, 1f, 1f);
-    private static readonly Color PanelDark = new Color(0.06f, 0.05f, 0.04f, 0.92f);
+    private static readonly Color CoolBlue = new Color(0.62f, 0.82f, 1f, 1f);
+    private static readonly Color Muted = new Color(0.66f, 0.6f, 0.5f, 1f);
+    private static readonly Color PanelTop = new Color(0.085f, 0.07f, 0.055f, 0.985f);
+    private static readonly Color PanelBottom = new Color(0.032f, 0.027f, 0.022f, 0.985f);
+    private static readonly Color PanelStroke = new Color(0.95f, 0.8f, 0.5f, 0.55f);
 
     private PinballGameManager manager;
     private Canvas canvas;
-    private TMP_FontAsset titleFont;
-    private TMP_FontAsset labelFont;
 
-    private Sprite roundedPanel;
-    private Sprite roundedPill;
+    private TMP_FontAsset displayFont;
+    private TMP_FontAsset labelFont;
+    private TMP_FontAsset bodyFont;
+
+    private Sprite panelSprite;
+    private Sprite pillSprite;
     private Sprite circleSprite;
 
     private TextMeshProUGUI plaqueScore;
     private TextMeshProUGUI plaquePlayer;
     private TextMeshProUGUI plaqueTop1;
     private TextMeshProUGUI plaqueTop2;
-    private TextMeshProUGUI plaqueEvent;
-
-    private TextMeshProUGUI hudPlayer;
-    private TextMeshProUGUI hudScore;
-    private TextMeshProUGUI hudBallsLabel;
-    private TextMeshProUGUI hudCombo;
-    private readonly Image[] ballPips = new Image[3];
-
-    private Image stormPill;
-    private TextMeshProUGUI stormText;
-    private Image hintPill;
-    private TextMeshProUGUI hintText;
-
-    private TextMeshProUGUI comboPop;
-    private Coroutine comboPopRoutine;
+    private TextMeshProUGUI plaqueStatus;
 
     private RectTransform popupLayer;
     private readonly List<TextMeshProUGUI> popupPool = new List<TextMeshProUGUI>();
@@ -60,25 +51,42 @@ public sealed class ScoreboardUI : MonoBehaviour
     private CanvasGroup modalGroup;
     private Image modalDim;
     private RectTransform modalPanel;
+    private Image modalPanelImage;
     private TextMeshProUGUI modalTitle;
     private TextMeshProUGUI modalSubtitle;
+    private TextMeshProUGUI modalFinalLabel;
     private TextMeshProUGUI modalFinalValue;
     private TextMeshProUGUI modalTopLines;
-    private TextMeshProUGUI modalPrompt;
+    private Image modalPromptShadow;
+    private Image modalPromptPill;
+    private TextMeshProUGUI modalPromptText;
+    private TextMeshProUGUI modalPromptHint;
     private RectTransform flakeLayer;
     private readonly List<RectTransform> flakes = new List<RectTransform>();
     private readonly List<float> flakeSpeeds = new List<float>();
     private readonly List<float> flakePhases = new List<float>();
 
-    private TextMeshProUGUI toastPillText;
-    private Image toastPill;
-    private Coroutine toastRoutine;
     private bool built;
     private bool gameOverVisible;
-    private bool modalIntroDone;
     private float restartEnabledAt;
-    private int lastCombo;
-    private float hintPulse;
+    private float modalElapsed;
+    private int modalTargetScore;
+
+    private float panelScale = 0.94f;
+    private float panelScaleVelocity;
+    private float panelOffset = -10f;
+    private float panelOffsetVelocity;
+    private float titleFade;
+    private float titleFadeVelocity;
+    private float dimAlpha;
+    private float dimAlphaVelocity;
+
+    private int lastScore;
+    private float scoreFlash;
+    private bool lastComboActive;
+    private int lastComboValue;
+    private string plaqueMessage;
+    private float plaqueMessageUntil;
 
     private struct Plaque
     {
@@ -100,11 +108,11 @@ public sealed class ScoreboardUI : MonoBehaviour
 
     private static readonly Plaque[] Plaques =
     {
-        new Plaque("top1", 0.746f, 0.727f, 0.953f, 0.840f),
+        new Plaque("top1", 0.049f, 0.727f, 0.254f, 0.840f),
         new Plaque("score", 0.291f, 0.656f, 0.713f, 0.891f),
-        new Plaque("top2", 0.049f, 0.727f, 0.254f, 0.840f),
+        new Plaque("top2", 0.746f, 0.727f, 0.953f, 0.840f),
         new Plaque("player", 0.049f, 0.098f, 0.254f, 0.211f),
-        new Plaque("event", 0.746f, 0.098f, 0.953f, 0.211f)
+        new Plaque("status", 0.746f, 0.098f, 0.953f, 0.211f)
     };
 
     public void Bind(PinballGameManager gameManager)
@@ -118,7 +126,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         {
             manager.ScoreChanged -= Refresh;
             manager.StateChanged -= Refresh;
-            manager.ToastRequested -= ShowToast;
+            manager.ToastRequested -= ShowPlaqueMessage;
         }
 
         manager = gameManager;
@@ -127,7 +135,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         {
             manager.ScoreChanged += Refresh;
             manager.StateChanged += Refresh;
-            manager.ToastRequested += ShowToast;
+            manager.ToastRequested += ShowPlaqueMessage;
         }
     }
 
@@ -137,7 +145,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         {
             manager.ScoreChanged -= Refresh;
             manager.StateChanged -= Refresh;
-            manager.ToastRequested -= ShowToast;
+            manager.ToastRequested -= ShowPlaqueMessage;
         }
     }
 
@@ -154,32 +162,27 @@ public sealed class ScoreboardUI : MonoBehaviour
             return;
         }
 
-        if (manager != null && manager.IsGameOver)
+        if (manager != null && manager.IsGameOver && gameOverVisible)
         {
             bool restart = (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
                 || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
                 || (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame);
 
-            if (restart && gameOverVisible && Time.unscaledTime >= restartEnabledAt)
+            if (restart && Time.unscaledTime >= restartEnabledAt)
             {
                 manager.RestartGame();
             }
         }
 
-        AnimateHint();
-        AnimateStorm();
-        AnimateComboPop();
-
-        if (gameOverVisible)
-        {
-            AnimateFlakes();
-            AnimatePrompt();
-        }
+        UpdateScoreFlash();
+        UpdateComboState();
+        UpdatePlaqueMessage();
+        UpdateModal();
     }
 
     private void Build()
     {
-        canvas = FindFirstObjectByType<Canvas>();
+        canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null)
         {
             GameObject canvasObject = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -212,11 +215,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         popupLayer = CreateRect("Popups", canvas.transform);
         Stretch(popupLayer);
 
-        BuildHud();
-        BuildToast();
-        BuildComboPop();
         BuildModal();
-
         built = true;
     }
 
@@ -224,8 +223,9 @@ public sealed class ScoreboardUI : MonoBehaviour
     private void LoadFonts()
     {
         TMP_FontAsset fallback = FindLegacyFont();
-        titleFont = CreateRuntimeFont("Fonts/RussoOne", fallback);
-        labelFont = CreateRuntimeFont("Fonts/Rajdhani-SemiBold", fallback);
+        displayFont = CreateRuntimeFont("Fonts/Barlow-Bold", fallback);
+        labelFont = CreateRuntimeFont("Fonts/Barlow-SemiBold", fallback);
+        bodyFont = CreateRuntimeFont("Fonts/Barlow-Regular", fallback);
     }
 
     private static TMP_FontAsset CreateRuntimeFont(string resourcePath, TMP_FontAsset fallback)
@@ -265,14 +265,14 @@ public sealed class ScoreboardUI : MonoBehaviour
     // ----------------------------------------------------------------- sprites
     private void BuildSprites()
     {
-        roundedPanel = CreateRoundedSprite("PanelRounded", 14, 3, new Color(0.05f, 0.04f, 0.03f, 0.92f), new Color(0.95f, 0.76f, 0.38f, 0.95f));
-        roundedPill = CreateRoundedSprite("PillRounded", 16, 0, Color.white, Color.white);
-        circleSprite = CreateCircleSprite("PipCircle", 32);
+        panelSprite = CreateRoundedSprite("PanelRounded", 16, 2, 18);
+        pillSprite = CreateSolidRoundedSprite("PillRounded", 18, 18, Color.white);
+        circleSprite = CreateCircleSprite("Circle", 32);
     }
 
-    private static Sprite CreateRoundedSprite(string name, int radius, int border, Color fill, Color stroke)
+    private static Sprite CreateRoundedSprite(string name, int radius, int border, int slice)
     {
-        const int size = 64;
+        const int size = 72;
         Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
         texture.name = name;
         texture.wrapMode = TextureWrapMode.Clamp;
@@ -280,6 +280,10 @@ public sealed class ScoreboardUI : MonoBehaviour
 
         for (int y = 0; y < size; y++)
         {
+            float vertical = y / (size - 1f);
+            Color fill = Color.Lerp(PanelBottom, PanelTop, vertical);
+            Color stroke = PanelStroke;
+
             for (int x = 0; x < size; x++)
             {
                 float px = x + 0.5f - size * 0.5f;
@@ -297,7 +301,7 @@ public sealed class ScoreboardUI : MonoBehaviour
                     continue;
                 }
 
-                bool isBorder = distance > -border;
+                bool isBorder = border > 0 && distance > -border;
                 Color color = isBorder ? stroke : fill;
                 color.a *= alpha;
                 texture.SetPixel(x, y, color);
@@ -312,7 +316,51 @@ public sealed class ScoreboardUI : MonoBehaviour
             100f,
             0,
             SpriteMeshType.FullRect,
-            new Vector4(18f, 18f, 18f, 18f));
+            new Vector4(slice, slice, slice, slice));
+    }
+
+    private static Sprite CreateSolidRoundedSprite(string name, int radius, int slice, Color fill)
+    {
+        const int size = 72;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.name = name;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float px = x + 0.5f - size * 0.5f;
+                float py = y + 0.5f - size * 0.5f;
+                float half = size * 0.5f - 1f;
+                float qx = Mathf.Abs(px) - (half - radius);
+                float qy = Mathf.Abs(py) - (half - radius);
+                float outside = new Vector2(Mathf.Max(qx, 0f), Mathf.Max(qy, 0f)).magnitude;
+                float distance = Mathf.Min(Mathf.Max(qx, qy), 0f) + outside - radius;
+                float alpha = Mathf.Clamp01(0.5f - distance);
+
+                if (alpha <= 0f)
+                {
+                    texture.SetPixel(x, y, Color.clear);
+                    continue;
+                }
+
+                Color color = fill;
+                color.a *= alpha;
+                texture.SetPixel(x, y, color);
+            }
+        }
+
+        texture.Apply();
+        return Sprite.Create(
+            texture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            new Vector4(slice, slice, slice, slice));
     }
 
     private static Sprite CreateCircleSprite(string name, int size)
@@ -337,7 +385,6 @@ public sealed class ScoreboardUI : MonoBehaviour
         texture.Apply();
         return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f);
     }
-
     // -------------------------------------------------------------- backglass
     private void BuildPlaque(Plaque plaque, Camera camera, MeshFilter scoreMesh, float scale)
     {
@@ -351,7 +398,10 @@ public sealed class ScoreboardUI : MonoBehaviour
         float height = Mathf.Max(screenRect.width, screenRect.height);
         float referenceWidth = width / scale;
 
-        TextMeshProUGUI text = CreateText("UI_" + plaque.id, canvas.transform, string.Empty, 16f, labelFont, Gold);
+        bool big = plaque.id == "score";
+        TMP_FontAsset font = big ? displayFont : labelFont;
+
+        TextMeshProUGUI text = CreateText("UI_" + plaque.id, canvas.transform, string.Empty, 12f, font, WarmWhite);
         RectTransform rect = text.rectTransform;
         rect.anchorMin = rect.anchorMax = new Vector2(
             screenRect.center.x / Mathf.Max(1f, camera != null ? camera.pixelWidth : ReferenceWidth),
@@ -361,12 +411,17 @@ public sealed class ScoreboardUI : MonoBehaviour
         rect.sizeDelta = new Vector2(height / scale, width / scale);
         rect.localEulerAngles = new Vector3(0f, 0f, -90f);
 
-        bool big = plaque.id == "score";
-        text.font = big ? titleFont : labelFont;
-        text.fontSize = big ? referenceWidth * 0.36f : referenceWidth * 0.47f;
+        text.fontSize = big ? referenceWidth * 0.34f : referenceWidth * 0.42f;
         text.alignment = TextAlignmentOptions.Center;
         text.overflowMode = TextOverflowModes.Overflow;
-        AddOutline(text, new Color(0f, 0f, 0f, 0.85f), 0.16f);
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.lineSpacing = big ? -8f : -4f;
+        text.characterSpacing = big ? -1.5f : 1f;
+
+        if (big)
+        {
+            AddUnderlay(text, new Color(0f, 0f, 0f, 0.55f), 0.22f, 2f);
+        }
 
         switch (plaque.id)
         {
@@ -382,8 +437,8 @@ public sealed class ScoreboardUI : MonoBehaviour
             case "top2":
                 plaqueTop2 = text;
                 break;
-            case "event":
-                plaqueEvent = text;
+            case "status":
+                plaqueStatus = text;
                 break;
         }
     }
@@ -419,189 +474,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         return new Rect(xMin, yMin, xMax - xMin, yMax - yMin);
     }
 
-    // -------------------------------------------------------------------- HUD
-    private void BuildHud()
-    {
-        // Carte joueur / score, en haut à gauche du plateau.
-        RectTransform scoreCard = CreateCard("HUD_ScoreCard", new Vector2(0f, 1f), new Vector2(20f, -20f), new Vector2(370f, 136f), new Vector2(0f, 1f));
-        AddAccent(scoreCard, new Vector2(0f, 1f), new Vector2(0f, -14f), new Vector2(4f, 104f));
-
-        TextMeshProUGUI playerLabel = CreateLabel("HUD_PlayerLabel", scoreCard, "JOUEUR", 13f, Muted);
-        Place(playerLabel.rectTransform, new Vector2(18f, -10f), new Vector2(320f, 16f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-        playerLabel.alignment = TextAlignmentOptions.Left;
-
-        hudPlayer = CreateLabel("HUD_Player", scoreCard, "AXEL L", 22f, WarmWhite);
-        Place(hudPlayer.rectTransform, new Vector2(18f, -26f), new Vector2(330f, 28f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-        hudPlayer.alignment = TextAlignmentOptions.Left;
-
-        TextMeshProUGUI scoreLabel = CreateLabel("HUD_ScoreLabel", scoreCard, "SCORE", 12f, Muted);
-        Place(scoreLabel.rectTransform, new Vector2(18f, -58f), new Vector2(140f, 14f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-        scoreLabel.alignment = TextAlignmentOptions.Left;
-
-        hudScore = CreateText("HUD_Score", scoreCard, "00000000", 42f, titleFont, Gold);
-        Place(hudScore.rectTransform, new Vector2(16f, -72f), new Vector2(330f, 52f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-        hudScore.alignment = TextAlignmentOptions.Left;
-        AddOutline(hudScore, new Color(0.18f, 0.08f, 0f, 0.9f), 0.18f);
-
-        // Carte billes / combo / météo, juste à gauche du backglass.
-        RectTransform statusCard = CreateCard("HUD_StatusCard", new Vector2(1f, 1f), new Vector2(-278f, -20f), new Vector2(250f, 120f), new Vector2(1f, 1f));
-
-        hudBallsLabel = CreateLabel("HUD_BallsLabel", statusCard, "BILLES  3 / 3", 13f, Muted);
-        Place(hudBallsLabel.rectTransform, new Vector2(16f, -10f), new Vector2(160f, 16f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-        hudBallsLabel.alignment = TextAlignmentOptions.Left;
-
-        for (int i = 0; i < ballPips.Length; i++)
-        {
-            Image pip = CreateImage("HUD_Ball" + i, statusCard, circleSprite, Gold);
-            pip.rectTransform.anchorMin = pip.rectTransform.anchorMax = new Vector2(0f, 1f);
-            pip.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            pip.rectTransform.sizeDelta = new Vector2(17f, 17f);
-            pip.rectTransform.anchoredPosition = new Vector2(172f + i * 26f, -19f);
-            ballPips[i] = pip;
-        }
-
-        hudCombo = CreateLabel("HUD_Combo", statusCard, "COMBO  -", 18f, Muted);
-        Place(hudCombo.rectTransform, new Vector2(16f, -46f), new Vector2(220f, 24f), new Vector2(0f, 1f), new Vector2(0f, 1f));
-        hudCombo.alignment = TextAlignmentOptions.Left;
-
-        stormPill = CreateImage("HUD_StormPill", statusCard, roundedPill, new Color(0.45f, 0.65f, 0.92f, 0.75f));
-        stormPill.type = Image.Type.Sliced;
-        stormPill.rectTransform.anchorMin = stormPill.rectTransform.anchorMax = new Vector2(0f, 1f);
-        stormPill.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        stormPill.rectTransform.sizeDelta = new Vector2(214f, 28f);
-        stormPill.rectTransform.anchoredPosition = new Vector2(125f, -90f);
-
-        stormText = CreateText("HUD_StormText", statusCard, "TEMPÊTE  -  x2", 12f, labelFont, Color.white);
-        stormText.rectTransform.anchorMin = stormText.rectTransform.anchorMax = new Vector2(0f, 1f);
-        stormText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        stormText.rectTransform.sizeDelta = new Vector2(210f, 24f);
-        stormText.rectTransform.anchoredPosition = new Vector2(125f, -90f);
-
-        stormPill.gameObject.SetActive(false);
-        stormText.gameObject.SetActive(false);
-
-        // Indication contextuelle en bas.
-        hintPill = CreateImage("HUD_HintPill", canvas.transform, roundedPill, new Color(0.04f, 0.03f, 0.02f, 0.72f));
-        hintPill.type = Image.Type.Sliced;
-        hintPill.rectTransform.anchorMin = hintPill.rectTransform.anchorMax = new Vector2(0.5f, 0f);
-        hintPill.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        hintPill.rectTransform.sizeDelta = new Vector2(560f, 44f);
-        hintPill.rectTransform.anchoredPosition = new Vector2(0f, 26f);
-
-        hintText = CreateText("HUD_Hint", canvas.transform, "ESPACE / BOUTON  -  LANCER LA BILLE", 17f, labelFont, WarmWhite);
-        hintText.rectTransform.anchorMin = hintText.rectTransform.anchorMax = new Vector2(0.5f, 0f);
-        hintText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        hintText.rectTransform.sizeDelta = new Vector2(550f, 40f);
-        hintText.rectTransform.anchoredPosition = new Vector2(0f, 26f);
-    }
-
-    private void BuildComboPop()
-    {
-        comboPop = CreateText("HUD_ComboPop", canvas.transform, "COMBO x2", 52f, titleFont, Gold);
-        comboPop.rectTransform.anchorMin = comboPop.rectTransform.anchorMax = new Vector2(0.5f, 0.62f);
-        comboPop.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        comboPop.rectTransform.sizeDelta = new Vector2(420f, 74f);
-        comboPop.rectTransform.anchoredPosition = Vector2.zero;
-        comboPop.alpha = 0f;
-        AddOutline(comboPop, new Color(0.15f, 0.05f, 0f, 0.9f), 0.22f);
-    }
-
-    private void BuildToast()
-    {
-        toastPill = CreateImage("HUD_ToastPill", canvas.transform, roundedPill, new Color(0.04f, 0.03f, 0.02f, 0.78f));
-        toastPill.type = Image.Type.Sliced;
-        toastPill.rectTransform.anchorMin = toastPill.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-        toastPill.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        toastPill.rectTransform.sizeDelta = new Vector2(520f, 42f);
-        toastPill.rectTransform.anchoredPosition = new Vector2(0f, -72f);
-        toastPill.gameObject.SetActive(false);
-
-        toastPillText = CreateText("HUD_Toast", canvas.transform, string.Empty, 18f, labelFont, Gold);
-        toastPillText.rectTransform.anchorMin = toastPillText.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-        toastPillText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        toastPillText.rectTransform.sizeDelta = new Vector2(510f, 38f);
-        toastPillText.rectTransform.anchoredPosition = new Vector2(0f, -72f);
-        toastPillText.gameObject.SetActive(false);
-    }
-
-    // ------------------------------------------------------------------- modal
-    private void BuildModal()
-    {
-        modalRoot = CreateRect("GameOver", canvas.transform);
-        Stretch(modalRoot);
-        modalGroup = modalRoot.gameObject.AddComponent<CanvasGroup>();
-        modalGroup.interactable = false;
-        modalGroup.blocksRaycasts = false;
-
-        modalDim = CreateImage("Dim", modalRoot, null, new Color(0f, 0f, 0f, 0f));
-        Stretch(modalDim.rectTransform);
-
-        modalPanel = CreateRect("Panel", modalRoot);
-        modalPanel.anchorMin = modalPanel.anchorMax = new Vector2(0.5f, 0.5f);
-        modalPanel.sizeDelta = new Vector2(680f, 430f);
-        modalPanel.anchoredPosition = Vector2.zero;
-
-        Image panelBackground = modalPanel.gameObject.AddComponent<Image>();
-        panelBackground.sprite = roundedPanel;
-        panelBackground.type = Image.Type.Sliced;
-        panelBackground.raycastTarget = false;
-
-        Image innerPanel = CreateImage("Inner", modalPanel, null, new Color(0.055f, 0.045f, 0.035f, 0.97f));
-        Place(innerPanel.rectTransform, Vector2.zero, new Vector2(650f, 400f));
-
-        modalTitle = CreateText("Title", modalPanel, "PERDU", 98f, titleFont, Gold);
-        Place(modalTitle.rectTransform, new Vector2(0f, 118f), new Vector2(620f, 130f));
-        AddOutline(modalTitle, new Color(0.22f, 0.07f, 0f, 1f), 0.28f);
-
-        modalSubtitle = CreateText("Subtitle", modalPanel, "PARTIE TERMINÉE", 18f, labelFont, Muted);
-        Place(modalSubtitle.rectTransform, new Vector2(0f, 52f), new Vector2(600f, 30f));
-        modalSubtitle.characterSpacing = 6f;
-
-        Image divider = CreateImage("Divider", modalPanel, null, new Color(0.85f, 0.66f, 0.3f, 0.55f));
-        Place(divider.rectTransform, new Vector2(0f, 28f), new Vector2(480f, 2f));
-
-        TextMeshProUGUI finalLabel = CreateText("FinalLabel", modalPanel, "SCORE FINAL", 14f, labelFont, Muted);
-        Place(finalLabel.rectTransform, new Vector2(0f, 6f), new Vector2(400f, 22f));
-
-        modalFinalValue = CreateText("FinalValue", modalPanel, "00000000", 54f, titleFont, WarmWhite);
-        Place(modalFinalValue.rectTransform, new Vector2(0f, -44f), new Vector2(600f, 64f));
-        AddOutline(modalFinalValue, Color.black, 0.18f);
-
-        modalTopLines = CreateText("TopLines", modalPanel, string.Empty, 17f, labelFont, new Color(0.92f, 0.8f, 0.54f, 1f));
-        Place(modalTopLines.rectTransform, new Vector2(0f, -112f), new Vector2(600f, 66f));
-        modalTopLines.lineSpacing = 6f;
-
-        Image replayPill = CreateImage("ReplayPill", modalPanel, roundedPill, new Color(0.85f, 0.66f, 0.3f, 0.9f));
-        replayPill.type = Image.Type.Sliced;
-        Place(replayPill.rectTransform, new Vector2(0f, -178f), new Vector2(330f, 48f));
-
-        modalPrompt = CreateText("Prompt", modalPanel, "CLIC / ESPACE  -  REJOUER", 18f, titleFont, new Color(0.16f, 0.09f, 0.02f, 1f));
-        Place(modalPrompt.rectTransform, new Vector2(0f, -178f), new Vector2(320f, 44f));
-
-        flakeLayer = CreateRect("Flakes", modalRoot);
-        Stretch(flakeLayer);
-        CreateFlakes();
-
-        modalRoot.gameObject.SetActive(false);
-    }
-
-    private void CreateFlakes()
-    {
-        for (int i = 0; i < 24; i++)
-        {
-            Image flake = CreateImage("Flake", flakeLayer, circleSprite, new Color(1f, 0.89f, 0.56f, 0.7f));
-            RectTransform rect = flake.rectTransform;
-            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(Random.Range(4f, 8f), Random.Range(9f, 16f));
-            rect.anchoredPosition = new Vector2(Random.Range(-620f, 620f), Random.Range(-400f, 420f));
-            rect.localEulerAngles = new Vector3(0f, 0f, Random.Range(0f, 360f));
-            flakes.Add(rect);
-            flakeSpeeds.Add(Random.Range(55f, 165f));
-            flakePhases.Add(Random.Range(0f, Mathf.PI * 2f));
-        }
-    }
-
-    // ----------------------------------------------------------------- refresh
+    // --------------------------------------------------------------- refresh
     private void Refresh()
     {
         if (!built || manager == null)
@@ -611,178 +484,129 @@ public sealed class ScoreboardUI : MonoBehaviour
 
         if (plaqueScore != null)
         {
-            plaqueScore.text = "SCORE\n" + FormatScore(manager.Score);
+            plaqueScore.text = manager.HasLaunched || manager.IsGameOver
+                ? "<size=48%><color=#C9A24B>SCORE</color></size>\n" + FormatScore(manager.Score)
+                : "<size=52%><color=#C9A24B>ESPACE</color></size>\n<size=92%>LANCER</size>";
         }
 
         if (plaquePlayer != null)
         {
-            plaquePlayer.text = "JOUEUR\n" + ShortName(manager.PlayerName);
+            plaquePlayer.text = "<size=78%><color=#C9A24B>JOUEUR</color></size>\n" + ShortName(manager.PlayerName);
         }
 
         if (plaqueTop1 != null)
         {
-            plaqueTop1.text = "TOP 1\n" + ShortName(manager.Top1.name) + " " + FormatScore(manager.Top1.score);
+            plaqueTop1.text = "<size=78%><color=#C9A24B>TOP 1</color></size>\n"
+                + ShortName(manager.Top1.name) + " " + FormatScore(manager.Top1.score);
         }
 
         if (plaqueTop2 != null)
         {
-            plaqueTop2.text = "TOP 2\n" + ShortName(manager.Top2.name) + " " + FormatScore(manager.Top2.score);
+            plaqueTop2.text = "<size=78%><color=#C9A24B>TOP 2</color></size>\n"
+                + ShortName(manager.Top2.name) + " " + FormatScore(manager.Top2.score);
         }
 
-        if (plaqueEvent != null)
+        UpdateStatusPlaque();
+
+        if (manager.Score > lastScore)
         {
-            plaqueEvent.color = manager.StormActive ? StormBlue : Muted;
-            plaqueEvent.text = manager.StormActive ? "TEMPÊTE\nx2" : "CALME";
+            scoreFlash = 1f;
         }
 
-        if (hudScore != null)
-        {
-            hudScore.text = FormatScore(manager.Score);
-        }
-
-        if (hudPlayer != null)
-        {
-            hudPlayer.text = ShortName(manager.PlayerName);
-        }
-
-        if (hudBallsLabel != null)
-        {
-            hudBallsLabel.text = "BILLES  " + manager.Balls + " / " + manager.startingBalls;
-        }
-
-        for (int i = 0; i < ballPips.Length; i++)
-        {
-            if (ballPips[i] == null)
-            {
-                continue;
-            }
-
-            bool alive = i < manager.Balls;
-            ballPips[i].color = alive ? Gold : new Color(0.25f, 0.21f, 0.15f, 0.6f);
-            ballPips[i].rectTransform.localScale = alive ? Vector3.one : Vector3.one * 0.82f;
-        }
-
-        if (hudCombo != null)
-        {
-            bool comboActive = manager.ComboActive;
-            hudCombo.text = comboActive ? "COMBO  x" + manager.BumperCombo : "COMBO  -";
-            hudCombo.color = comboActive ? Gold : Muted;
-        }
-
-        if (stormPill != null)
-        {
-            bool storm = manager.StormActive;
-            stormPill.gameObject.SetActive(storm);
-            stormText.gameObject.SetActive(storm);
-        }
-
-        if (hintPill != null)
-        {
-            bool showHint = !manager.IsGameOver;
-            hintPill.gameObject.SetActive(showHint);
-            hintText.gameObject.SetActive(showHint);
-
-            if (!manager.HasLaunched)
-            {
-                hintText.text = "ESPACE / BOUTON  -  LANCER LA BILLE";
-            }
-            else
-            {
-                int currentBall = Mathf.Clamp(manager.startingBalls - manager.Balls + 1, 1, manager.startingBalls);
-                hintText.text = "BILLE " + currentBall + " / " + manager.startingBalls;
-            }
-        }
-
-        if (manager.BumperCombo > lastCombo && manager.BumperCombo >= 2)
-        {
-            PlayComboPop(manager.BumperCombo);
-        }
-
-        lastCombo = manager.BumperCombo;
+        lastScore = manager.Score;
+        lastComboActive = manager.ComboActive;
+        lastComboValue = manager.BumperCombo;
     }
 
-    private void AnimateHint()
+    private void UpdateStatusPlaque()
     {
-        if (hintText == null || hintPill == null || manager == null)
+        if (plaqueStatus == null || manager == null)
         {
             return;
         }
 
-        if (!manager.HasLaunched && !manager.IsGameOver)
+        if (!string.IsNullOrEmpty(plaqueMessage) && Time.unscaledTime < plaqueMessageUntil)
         {
-            hintPulse += Time.unscaledDeltaTime * 3f;
-            float pulse = 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(hintPulse));
-            Color color = hintText.color;
-            color.a = pulse;
-            hintText.color = color;
+            string[] lines = plaqueMessage.Split('\n');
+            string first = lines.Length > 0 ? lines[0] : string.Empty;
+            string second = lines.Length > 1 ? lines[1] : string.Empty;
+            plaqueStatus.text = "<size=78%><color=#E0A86A>" + first + "</color></size>\n" + second;
+            return;
+        }
+
+        string status;
+        if (manager.StormActive)
+        {
+            status = "<color=#8FD0FF>TEMPÊTE x2</color>";
+        }
+        else if (manager.ComboActive)
+        {
+            status = "<color=#FFD27A>COMBO x" + manager.BumperCombo + "</color>";
         }
         else
         {
-            Color color = hintText.color;
-            color.a = 0.75f;
-            hintText.color = color;
+            status = "<color=#B8AA90>CALME</color>";
         }
+
+        plaqueStatus.text = "<size=78%><color=#C9A24B>BILLES " + manager.Balls + "/"
+            + manager.startingBalls + "</color></size>\n" + status;
     }
 
-    private void AnimateStorm()
+    private void UpdateScoreFlash()
     {
-        if (stormText == null || manager == null || !manager.StormActive)
+        if (plaqueScore == null)
         {
             return;
         }
 
-        float pulse = 0.7f + 0.3f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 2.1f));
-        Color color = stormText.color;
-        color.a = pulse;
-        stormText.color = color;
+        if (scoreFlash > 0f)
+        {
+            scoreFlash = Mathf.MoveTowards(scoreFlash, 0f, Time.unscaledDeltaTime * 3.2f);
+            plaqueScore.color = Color.Lerp(WarmWhite, new Color(1f, 0.88f, 0.55f, 1f), scoreFlash);
+            float scale = 1f + 0.012f * scoreFlash;
+            plaqueScore.rectTransform.localScale = new Vector3(scale, scale, 1f);
+        }
+        else if (plaqueScore.color != WarmWhite || plaqueScore.rectTransform.localScale != Vector3.one)
+        {
+            plaqueScore.color = WarmWhite;
+            plaqueScore.rectTransform.localScale = Vector3.one;
+        }
     }
 
-    private void PlayComboPop(int combo)
+    private void UpdateComboState()
     {
-        if (comboPop == null)
+        if (manager == null)
         {
             return;
         }
 
-        if (comboPopRoutine != null)
+        if (manager.ComboActive != lastComboActive || manager.BumperCombo != lastComboValue)
         {
-            StopCoroutine(comboPopRoutine);
+            lastComboActive = manager.ComboActive;
+            lastComboValue = manager.BumperCombo;
+            UpdateStatusPlaque();
         }
-
-        comboPopRoutine = StartCoroutine(AnimateComboPop(combo));
     }
 
-    private IEnumerator AnimateComboPop(int combo)
+    private void UpdatePlaqueMessage()
     {
-        comboPop.text = "COMBO x" + combo;
-        comboPop.alpha = 1f;
-        comboPop.rectTransform.localScale = Vector3.one * 0.7f;
-
-        float time = 0f;
-        const float duration = 0.65f;
-
-        while (time < duration)
+        if (!string.IsNullOrEmpty(plaqueMessage) && Time.unscaledTime >= plaqueMessageUntil)
         {
-            time += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(time / duration);
-            float punch = 1f + 0.18f * Mathf.Sin(t * Mathf.PI);
-            comboPop.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.7f, 1f, t) * punch;
-            comboPop.alpha = 1f - Mathf.Pow(t, 2f);
-            yield return null;
+            plaqueMessage = null;
+            UpdateStatusPlaque();
         }
-
-        comboPop.alpha = 0f;
-        comboPopRoutine = null;
     }
 
-    private void AnimateComboPop()
+    private void ShowPlaqueMessage(string message)
     {
-        if (comboPop == null)
+        if (!built || string.IsNullOrEmpty(message))
         {
             return;
         }
 
-        comboPop.rectTransform.anchoredPosition = new Vector2(0f, 18f * Mathf.Sin(Time.unscaledTime * 1.4f));
+        plaqueMessage = message;
+        plaqueMessageUntil = Time.unscaledTime + 1.7f;
+        UpdateStatusPlaque();
     }
 
     // ----------------------------------------------------------------- popups
@@ -809,14 +633,14 @@ public sealed class ScoreboardUI : MonoBehaviour
         popup.gameObject.SetActive(true);
         popup.alpha = 1f;
         popup.text = (string.IsNullOrEmpty(label) ? string.Empty : label + "\n") + "+" + points;
-        popup.color = manager != null && manager.StormActive ? StormBlue : Gold;
+        popup.color = manager != null && manager.StormActive ? CoolBlue : Gold;
 
         RectTransform rect = popup.rectTransform;
         Vector2 reference = new Vector2(
             (screen.x / Mathf.Max(1f, camera.pixelWidth) - 0.5f) * ReferenceWidth,
             (screen.y / Mathf.Max(1f, camera.pixelHeight) - 0.5f) * ReferenceHeight);
         rect.anchoredPosition = reference;
-        rect.localScale = Vector3.one;
+        rect.localScale = Vector3.one * 0.86f;
 
         StartCoroutine(AnimatePopup(popup, reference));
     }
@@ -830,9 +654,10 @@ public sealed class ScoreboardUI : MonoBehaviour
         {
             time += Time.unscaledDeltaTime;
             float t = Mathf.Clamp01(time / duration);
-            popup.rectTransform.anchoredPosition = start + new Vector2(0f, 70f * t);
+            float pop = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / 0.18f), 3f);
+            popup.rectTransform.anchoredPosition = start + new Vector2(0f, 64f * t);
             popup.alpha = 1f - Mathf.Pow(t, 2f);
-            popup.rectTransform.localScale = Vector3.one * Mathf.Lerp(1.12f, 0.9f, t);
+            popup.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.86f, 1f, pop);
             yield return null;
         }
 
@@ -843,11 +668,12 @@ public sealed class ScoreboardUI : MonoBehaviour
     {
         if (popupPool.Count < 16)
         {
-            TextMeshProUGUI popup = CreateText("Popup", popupLayer, string.Empty, 24f, titleFont, Gold);
+            TextMeshProUGUI popup = CreateText("Popup", popupLayer, string.Empty, 22f, displayFont, Gold);
             popup.rectTransform.anchorMin = popup.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            popup.rectTransform.sizeDelta = new Vector2(230f, 66f);
+            popup.rectTransform.sizeDelta = new Vector2(240f, 70f);
             popup.alignment = TextAlignmentOptions.Center;
-            AddOutline(popup, Color.black, 0.2f);
+            popup.characterSpacing = 0f;
+            AddUnderlay(popup, new Color(0f, 0f, 0f, 0.5f), 0.2f, 1.5f);
             popup.gameObject.SetActive(false);
             popupPool.Add(popup);
             return popup;
@@ -859,6 +685,96 @@ public sealed class ScoreboardUI : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ modal
+    private void BuildModal()
+    {
+        modalRoot = CreateRect("GameOver", canvas.transform);
+        Stretch(modalRoot);
+        modalGroup = modalRoot.gameObject.AddComponent<CanvasGroup>();
+        modalGroup.interactable = false;
+        modalGroup.blocksRaycasts = false;
+
+        modalDim = CreateImage("Dim", modalRoot, null, new Color(0f, 0f, 0f, 0f));
+        Stretch(modalDim.rectTransform);
+
+        modalPanel = CreateRect("Panel", modalRoot);
+        modalPanel.anchorMin = modalPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        modalPanel.sizeDelta = new Vector2(680f, 430f);
+        modalPanel.anchoredPosition = new Vector2(0f, -10f);
+
+        modalPanelImage = modalPanel.gameObject.AddComponent<Image>();
+        modalPanelImage.sprite = panelSprite;
+        modalPanelImage.type = Image.Type.Sliced;
+        modalPanelImage.raycastTarget = false;
+
+        Image highlight = CreateImage("Highlight", modalPanel, null, new Color(1f, 0.9f, 0.65f, 0.12f));
+        Place(highlight.rectTransform, new Vector2(0f, 198f), new Vector2(590f, 1f));
+
+        modalTitle = CreateText("Title", modalPanel, "PERDU", 94f, displayFont, WarmWhite);
+        Place(modalTitle.rectTransform, new Vector2(0f, 118f), new Vector2(620f, 124f));
+        modalTitle.characterSpacing = -3f;
+        modalTitle.lineSpacing = -10f;
+        AddUnderlay(modalTitle, new Color(0f, 0f, 0f, 0.55f), 0.3f, 2.5f);
+
+        modalSubtitle = CreateText("Subtitle", modalPanel, "PARTIE TERMINÉE", 15f, labelFont, GoldMuted);
+        Place(modalSubtitle.rectTransform, new Vector2(0f, 50f), new Vector2(600f, 26f));
+        modalSubtitle.characterSpacing = 10f;
+
+        Image divider = CreateImage("Divider", modalPanel, null, new Color(0.92f, 0.76f, 0.43f, 0.22f));
+        Place(divider.rectTransform, new Vector2(0f, 24f), new Vector2(480f, 1f));
+
+        modalFinalLabel = CreateText("FinalLabel", modalPanel, "SCORE FINAL", 12f, bodyFont, Muted);
+        Place(modalFinalLabel.rectTransform, new Vector2(0f, 2f), new Vector2(400f, 20f));
+        modalFinalLabel.characterSpacing = 8f;
+
+        modalFinalValue = CreateText("FinalValue", modalPanel, "00000000", 52f, displayFont, Gold);
+        Place(modalFinalValue.rectTransform, new Vector2(0f, -46f), new Vector2(600f, 62f));
+        modalFinalValue.characterSpacing = -2f;
+        AddUnderlay(modalFinalValue, new Color(0f, 0f, 0f, 0.45f), 0.2f, 2f);
+
+        modalTopLines = CreateText("TopLines", modalPanel, string.Empty, 15f, labelFont, new Color(0.92f, 0.84f, 0.68f, 1f));
+        Place(modalTopLines.rectTransform, new Vector2(0f, -116f), new Vector2(600f, 62f));
+        modalTopLines.lineSpacing = 6f;
+        modalTopLines.characterSpacing = 2f;
+
+        modalPromptShadow = CreateImage("PromptShadow", modalPanel, pillSprite, new Color(0f, 0f, 0f, 0.35f));
+        modalPromptShadow.type = Image.Type.Sliced;
+        Place(modalPromptShadow.rectTransform, new Vector2(0f, -176f), new Vector2(330f, 50f));
+
+        modalPromptPill = CreateImage("PromptPill", modalPanel, pillSprite, new Color(0.86f, 0.7f, 0.4f, 0.95f));
+        modalPromptPill.type = Image.Type.Sliced;
+        Place(modalPromptPill.rectTransform, new Vector2(0f, -172f), new Vector2(330f, 50f));
+
+        modalPromptText = CreateText("Prompt", modalPanel, "REJOUER", 18f, labelFont, new Color(0.12f, 0.08f, 0.03f, 1f));
+        Place(modalPromptText.rectTransform, new Vector2(0f, -172f), new Vector2(320f, 42f));
+        modalPromptText.characterSpacing = 8f;
+
+        modalPromptHint = CreateText("PromptHint", modalPanel, "ESPACE / CLIC", 11f, bodyFont, Muted);
+        Place(modalPromptHint.rectTransform, new Vector2(0f, -204f), new Vector2(320f, 18f));
+        modalPromptHint.characterSpacing = 6f;
+
+        flakeLayer = CreateRect("Flakes", modalRoot);
+        Stretch(flakeLayer);
+        CreateFlakes();
+
+        modalRoot.gameObject.SetActive(false);
+    }
+
+    private void CreateFlakes()
+    {
+        for (int i = 0; i < 22; i++)
+        {
+            Image flake = CreateImage("Flake", flakeLayer, circleSprite, new Color(1f, 0.88f, 0.55f, 0.34f));
+            RectTransform rect = flake.rectTransform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            float size = Random.Range(3f, 7f);
+            rect.sizeDelta = new Vector2(size, size);
+            rect.anchoredPosition = new Vector2(Random.Range(-620f, 620f), Random.Range(-400f, 420f));
+            flakes.Add(rect);
+            flakeSpeeds.Add(Random.Range(38f, 105f));
+            flakePhases.Add(Random.Range(0f, Mathf.PI * 2f));
+        }
+    }
+
     public void ShowGameOver()
     {
         if (!built)
@@ -870,93 +786,87 @@ public sealed class ScoreboardUI : MonoBehaviour
         modalRoot.gameObject.SetActive(true);
         modalRoot.SetAsLastSibling();
         gameOverVisible = true;
-        modalIntroDone = false;
-        restartEnabledAt = Time.unscaledTime + 1.2f;
+        restartEnabledAt = Time.unscaledTime + 1.15f;
+        modalElapsed = 0f;
+        modalTargetScore = manager != null ? manager.Score : 0;
 
-        foreach (TextMeshProUGUI popup in popupPool)
-        {
-            popup.gameObject.SetActive(false);
-        }
+        panelScale = 0.94f;
+        panelScaleVelocity = 0f;
+        panelOffset = -10f;
+        panelOffsetVelocity = 0f;
+        titleFade = 0f;
+        titleFadeVelocity = 0f;
+        dimAlpha = 0f;
+        dimAlphaVelocity = 0f;
 
-        modalGroup.alpha = 1f;
-        modalDim.color = new Color(0f, 0f, 0f, 0f);
-        modalPanel.localScale = Vector3.one * 0.6f;
-        modalTitle.alpha = 0f;
-        modalTitle.rectTransform.localScale = Vector3.one * 2.3f;
-        modalSubtitle.alpha = 0f;
-        modalFinalValue.alpha = 0f;
-        modalFinalValue.text = "00000000";
-        modalTopLines.alpha = 0f;
-        modalPrompt.alpha = 0f;
-
-        hintPill.gameObject.SetActive(false);
-        hintText.gameObject.SetActive(false);
-
-        StartCoroutine(AnimateGameOver());
-    }
-
-    private IEnumerator AnimateGameOver()
-    {
-        float time = 0f;
-
-        while (time < 0.42f)
-        {
-            time += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(time / 0.42f);
-            modalDim.color = new Color(0f, 0f, 0f, 0.88f * t);
-            yield return null;
-        }
-
-        time = 0f;
-        while (time < 0.55f)
-        {
-            time += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(time / 0.55f);
-            float eased = 1f - Mathf.Pow(1f - t, 3f);
-            float overshoot = Mathf.Sin(t * Mathf.PI) * 0.07f;
-            modalPanel.localScale = Vector3.one * Mathf.Lerp(0.6f, 1f + overshoot, eased);
-            modalTitle.alpha = t;
-            modalTitle.rectTransform.localScale = Vector3.one * Mathf.Lerp(2.3f, 1f, eased);
-            modalSubtitle.alpha = t;
-            yield return null;
-        }
-
-        modalPanel.localScale = Vector3.one;
-        modalTitle.rectTransform.localScale = Vector3.one;
-
-        int target = manager != null ? manager.Score : 0;
-        time = 0f;
-        while (time < 1.05f)
-        {
-            time += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(time / 1.05f);
-            float eased = 1f - Mathf.Pow(1f - t, 3f);
-            modalFinalValue.text = FormatScore(Mathf.RoundToInt(target * eased));
-            modalFinalValue.alpha = t;
-            yield return null;
-        }
-
-        modalFinalValue.text = FormatScore(target);
-
+        // Les meilleurs scores viennent d'être mis à jour par le manager.
         string top1Name = manager != null ? ShortName(manager.Top1.name) : "---";
         int top1Score = manager != null ? manager.Top1.score : 0;
         string top2Name = manager != null ? ShortName(manager.Top2.name) : "---";
         int top2Score = manager != null ? manager.Top2.score : 0;
 
-        modalTopLines.text = $"TOP 1   {top1Name}   {FormatScore(top1Score)}\nTOP 2   {top2Name}   {FormatScore(top2Score)}";
+        modalTopLines.text = "<color=#C9A24B>TOP 1</color>   " + top1Name + "   " + FormatScore(top1Score)
+            + "\n<color=#C9A24B>TOP 2</color>   " + top2Name + "   " + FormatScore(top2Score);
 
-        time = 0f;
-        while (time < 0.4f)
+        modalFinalValue.text = "00000000";
+        modalFinalValue.alpha = 0f;
+        modalFinalLabel.alpha = 0f;
+        modalTopLines.alpha = 0f;
+        modalTitle.alpha = 0f;
+        modalTitle.rectTransform.localScale = Vector3.one * 1.04f;
+        modalSubtitle.alpha = 0f;
+        modalPromptText.alpha = 0f;
+        modalPromptHint.alpha = 0f;
+        modalPromptPill.color = new Color(0.86f, 0.7f, 0.4f, 0f);
+        modalPromptShadow.color = new Color(0f, 0f, 0f, 0f);
+        modalGroup.alpha = 1f;
+        modalDim.color = new Color(0f, 0f, 0f, 0f);
+        modalPanel.localScale = Vector3.one * panelScale;
+        modalPanel.anchoredPosition = new Vector2(0f, panelOffset);
+    }
+
+    private void UpdateModal()
+    {
+        if (!built || !gameOverVisible)
         {
-            time += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(time / 0.4f);
-            modalTopLines.alpha = t;
-            yield return null;
+            return;
         }
 
-        modalTopLines.alpha = 1f;
-        modalPrompt.alpha = 1f;
-        modalIntroDone = true;
+        float dt = Mathf.Min(Time.unscaledDeltaTime, 1f / 30f);
+        modalElapsed += dt;
+
+        Spring(ref panelScale, ref panelScaleVelocity, 1f, 0.82f, 3.2f, dt);
+        Spring(ref panelOffset, ref panelOffsetVelocity, 0f, 0.9f, 3f, dt);
+        Spring(ref titleFade, ref titleFadeVelocity, 1f, 1f, 4.5f, dt);
+        Spring(ref dimAlpha, ref dimAlphaVelocity, 0.9f, 1f, 5f, dt);
+
+        modalPanel.localScale = new Vector3(panelScale, panelScale, 1f);
+        modalPanel.anchoredPosition = new Vector2(0f, panelOffset);
+        modalDim.color = new Color(0f, 0f, 0f, dimAlpha);
+
+        modalTitle.alpha = titleFade;
+        modalTitle.rectTransform.localScale = Vector3.one * Mathf.Lerp(1.04f, 1f, titleFade);
+        modalSubtitle.alpha = titleFade;
+
+        float reveal = Mathf.Clamp01((modalElapsed - 0.22f) / 0.4f);
+        modalFinalLabel.alpha = reveal * 0.9f;
+        modalFinalValue.alpha = reveal;
+
+        float countT = Mathf.Clamp01((modalElapsed - 0.32f) / 0.9f);
+        float eased = 1f - Mathf.Pow(1f - countT, 3f);
+        modalFinalValue.text = FormatScore(Mathf.RoundToInt(modalTargetScore * eased));
+
+        float topReveal = Mathf.Clamp01((modalElapsed - 1.05f) / 0.4f);
+        modalTopLines.alpha = topReveal;
+
+        float promptReveal = Mathf.Clamp01((modalElapsed - 1.25f) / 0.35f);
+        float breathe = 0.78f + 0.22f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 2.1f));
+        modalPromptText.alpha = promptReveal;
+        modalPromptHint.alpha = promptReveal * 0.7f;
+        modalPromptPill.color = new Color(0.86f, 0.7f, 0.4f, 0.95f * promptReveal * breathe);
+        modalPromptShadow.color = new Color(0f, 0f, 0f, 0.35f * promptReveal * breathe);
+
+        AnimateFlakes(dt);
     }
 
     public void HideGameOver()
@@ -968,7 +878,6 @@ public sealed class ScoreboardUI : MonoBehaviour
 
         StopAllCoroutines();
         gameOverVisible = false;
-        modalIntroDone = false;
         StartCoroutine(FadeOutModal());
     }
 
@@ -977,10 +886,10 @@ public sealed class ScoreboardUI : MonoBehaviour
         float time = 0f;
         float startAlpha = modalGroup.alpha;
 
-        while (time < 0.22f)
+        while (time < 0.2f)
         {
             time += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(time / 0.22f);
+            float t = Mathf.Clamp01(time / 0.2f);
             modalGroup.alpha = Mathf.Lerp(startAlpha, 0f, t);
             yield return null;
         }
@@ -989,10 +898,8 @@ public sealed class ScoreboardUI : MonoBehaviour
         modalRoot.gameObject.SetActive(false);
     }
 
-    private void AnimateFlakes()
+    private void AnimateFlakes(float dt)
     {
-        float dt = Time.unscaledDeltaTime;
-
         for (int i = 0; i < flakes.Count; i++)
         {
             RectTransform flake = flakes[i];
@@ -1003,8 +910,8 @@ public sealed class ScoreboardUI : MonoBehaviour
 
             Vector2 position = flake.anchoredPosition;
             position.y -= flakeSpeeds[i] * dt;
-            flakePhases[i] += dt * 1.6f;
-            position.x += Mathf.Sin(flakePhases[i]) * 22f * dt;
+            flakePhases[i] += dt * 1.2f;
+            position.x += Mathf.Sin(flakePhases[i]) * 16f * dt;
 
             if (position.y < -560f)
             {
@@ -1013,63 +920,24 @@ public sealed class ScoreboardUI : MonoBehaviour
             }
 
             flake.anchoredPosition = position;
-            flake.Rotate(0f, 0f, 150f * dt);
         }
-    }
-
-    private void AnimatePrompt()
-    {
-        if (!modalIntroDone || modalPrompt == null)
-        {
-            return;
-        }
-
-        float pulse = 0.65f + 0.35f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 2.2f));
-        modalPrompt.alpha = pulse;
-    }
-
-    private void ShowToast(string message)
-    {
-        if (!built || toastPillText == null || string.IsNullOrEmpty(message))
-        {
-            return;
-        }
-
-        if (toastRoutine != null)
-        {
-            StopCoroutine(toastRoutine);
-        }
-
-        toastRoutine = StartCoroutine(AnimateToast(message));
-    }
-
-    private IEnumerator AnimateToast(string message)
-    {
-        toastPillText.text = message;
-        toastPillText.gameObject.SetActive(true);
-        toastPill.gameObject.SetActive(true);
-
-        RectTransform rect = toastPillText.rectTransform;
-        float time = 0f;
-        const float duration = 1.7f;
-
-        while (time < duration)
-        {
-            time += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(time / duration);
-            float alpha = t < 0.15f ? t / 0.15f : 1f - Mathf.Pow(Mathf.Clamp01((t - 0.7f) / 0.3f), 2f);
-            toastPillText.alpha = alpha;
-            toastPill.color = new Color(0.04f, 0.03f, 0.02f, 0.78f * alpha);
-            rect.anchoredPosition = new Vector2(0f, Mathf.Lerp(-80f, -64f, t));
-            yield return null;
-        }
-
-        toastPillText.gameObject.SetActive(false);
-        toastPill.gameObject.SetActive(false);
-        toastRoutine = null;
     }
 
     // ----------------------------------------------------------------- helpers
+    private static void Spring(ref float value, ref float velocity, float target, float damping, float frequency, float dt)
+    {
+        float omega = 2f * Mathf.PI * frequency;
+        float f = 1f + 2f * dt * damping * omega;
+        float oo = omega * omega;
+        float hoo = dt * oo;
+        float hhoo = dt * hoo;
+        float detInv = 1f / (f + hhoo);
+        float detX = f * value + dt * velocity + hhoo * target;
+        float detV = velocity + hhoo * (target - value);
+        value = detX * detInv;
+        velocity = detV * detInv;
+    }
+
     private void HideLegacyTexts()
     {
         string[] names = { "Score Actuel", "Text - Score", "Premier Nom - Classement", "Premier Nom - Classement (1)" };
@@ -1112,30 +980,6 @@ public sealed class ScoreboardUI : MonoBehaviour
         return name.Length > 9 ? name.Substring(0, 9) : name;
     }
 
-    private RectTransform CreateCard(string name, Vector2 anchor, Vector2 position, Vector2 size, Vector2 pivot)
-    {
-        RectTransform rect = CreateRect(name, canvas.transform);
-        rect.anchorMin = rect.anchorMax = anchor;
-        rect.pivot = pivot;
-        rect.sizeDelta = size;
-        rect.anchoredPosition = position;
-
-        Image background = rect.gameObject.AddComponent<Image>();
-        background.sprite = roundedPanel;
-        background.type = Image.Type.Sliced;
-        background.raycastTarget = false;
-        return rect;
-    }
-
-    private void AddAccent(RectTransform parent, Vector2 anchor, Vector2 position, Vector2 size)
-    {
-        Image accent = CreateImage("Accent", parent, null, new Color(0.95f, 0.76f, 0.38f, 0.85f));
-        accent.rectTransform.anchorMin = accent.rectTransform.anchorMax = anchor;
-        accent.rectTransform.pivot = new Vector2(0f, 1f);
-        accent.rectTransform.sizeDelta = size;
-        accent.rectTransform.anchoredPosition = position;
-    }
-
     private TextMeshProUGUI CreateText(string name, Transform parent, string content, float size, TMP_FontAsset font, Color color)
     {
         GameObject go = new GameObject(name, typeof(RectTransform));
@@ -1152,12 +996,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         return text;
     }
 
-    private TextMeshProUGUI CreateLabel(string name, Transform parent, string content, float size, Color color)
-    {
-        return CreateText(name, parent, content, size, labelFont, color);
-    }
-
-    private static void AddOutline(TextMeshProUGUI text, Color color, float width)
+    private static void AddUnderlay(TextMeshProUGUI text, Color color, float softness, float offsetY)
     {
         if (text == null || text.font == null)
         {
@@ -1165,9 +1004,12 @@ public sealed class ScoreboardUI : MonoBehaviour
         }
 
         Material material = new Material(text.font.material);
-        material.EnableKeyword("OUTLINE_ON");
-        material.SetColor("_OutlineColor", color);
-        material.SetFloat("_OutlineWidth", width);
+        material.EnableKeyword("UNDERLAY_ON");
+        material.SetColor("_UnderlayColor", color);
+        material.SetFloat("_UnderlaySoftness", softness);
+        material.SetFloat("_UnderlayOffsetX", 0f);
+        material.SetFloat("_UnderlayOffsetY", -offsetY * 0.01f);
+        material.SetFloat("_UnderlayDilate", 0.1f);
         text.fontMaterial = material;
     }
 
@@ -1201,14 +1043,6 @@ public sealed class ScoreboardUI : MonoBehaviour
     {
         rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = position;
-        rect.sizeDelta = size;
-    }
-
-    private static void Place(RectTransform rect, Vector2 position, Vector2 size, Vector2 anchor, Vector2 pivot)
-    {
-        rect.anchorMin = rect.anchorMax = anchor;
-        rect.pivot = pivot;
         rect.anchoredPosition = position;
         rect.sizeDelta = size;
     }

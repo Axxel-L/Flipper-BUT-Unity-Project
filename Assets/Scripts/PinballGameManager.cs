@@ -76,7 +76,7 @@ public sealed class PinballGameManager : MonoBehaviour
         PinballGameManager existing = Instance;
         if (existing == null)
         {
-            existing = FindFirstObjectByType<PinballGameManager>();
+            existing = FindAnyObjectByType<PinballGameManager>();
         }
 
         if (existing == null)
@@ -305,7 +305,7 @@ public sealed class PinballGameManager : MonoBehaviour
         }
 
         StateChanged?.Invoke();
-        ToastRequested?.Invoke($"BILLE PERDUE  -  {Balls} RESTANTE" + (Balls > 1 ? "S" : ""));
+        ToastRequested?.Invoke("BILLE PERDUE\n" + Balls + " RESTANTE" + (Balls > 1 ? "S" : ""));
         resetRoutine = StartCoroutine(ResetAfterDelay(1.1f));
     }
 
@@ -456,7 +456,7 @@ public sealed class PinballGameManager : MonoBehaviour
 
     private static Transform FindStartPosition()
     {
-        BallOutOfBounds outOfBounds = FindFirstObjectByType<BallOutOfBounds>();
+        BallOutOfBounds outOfBounds = FindAnyObjectByType<BallOutOfBounds>();
         if (outOfBounds != null && outOfBounds.startPosition != null)
         {
             return outOfBounds.startPosition;

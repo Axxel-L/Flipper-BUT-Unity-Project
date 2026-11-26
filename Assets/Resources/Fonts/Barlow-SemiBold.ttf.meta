@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 8fced5b1d32de43e480b35620b9caba5
+guid: 27b7db49d145f4b2a9852f72b80f5fe9
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - Rajdhani
+  - Barlow
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0
