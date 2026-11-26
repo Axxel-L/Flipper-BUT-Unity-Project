@@ -11,6 +11,9 @@ using System.Collections;
 /// </summary>
 public class SlingshotMover : MonoBehaviour
 {
+    private const string StarterModelResourcePath =
+        "StarterModel/Meshy_AI_Jagermeister_Bottle_20261126_texture_obj/Meshy_AI_Jagermeister_Bottle_20261126_texture";
+
     [Header("Axe (X = rouge dans la scène)")]
     [Tooltip("Direction locale du déplacement ET de l'impulsion. Pour l'axe rouge (X) : (1,0,0)")]
     public Vector3 direction = Vector3.right;
@@ -103,6 +106,18 @@ public class SlingshotMover : MonoBehaviour
         get { return direction.sqrMagnitude > 0.000001f ? direction.normalized : Vector3.right; }
     }
 
+    private void OnValidate()
+    {
+        Transform model = transform.Find("StarterBottle");
+        if (model == null)
+            return;
+
+        model.localPosition = Vector3.zero;
+        model.localRotation = Quaternion.FromToRotation(Vector3.up, DirNormalized)
+            * Quaternion.Euler(0f, -90f, 0f);
+        model.localScale = new Vector3(1.1f, 0.7f, 0.7f);
+    }
+
     /// <summary>Direction du tir exprimée en espace monde (celle de l'impulsion).</summary>
     private Vector3 WorldDir
     {
@@ -123,6 +138,7 @@ public class SlingshotMover : MonoBehaviour
             Debug.LogWarning("[Starter] Aucun Collider sur le starter : la bille ne pourra pas être détectée.", this);
         }
 
+        AddStarterModel();
         ResolveBall();
 
         // Bouton de la plaque : action LaunchBall (<HID::xin-mo.com Xinmotek Controller>/button4)
@@ -377,6 +393,46 @@ public class SlingshotMover : MonoBehaviour
         {
             Debug.LogWarning("[Starter] Aucune bille trouvée. Assigne le Rigidbody de la bille dans " +
                 "le champ 'Ball' du composant SlingshotMover.", this);
+        }
+    }
+
+    private void AddStarterModel()
+    {
+        Transform existingModel = transform.Find("StarterBottle");
+        GameObject model;
+        if (existingModel != null)
+        {
+            model = existingModel.gameObject;
+        }
+        else
+        {
+            GameObject modelPrefab = Resources.Load<GameObject>(StarterModelResourcePath);
+            if (modelPrefab == null)
+            {
+                Debug.LogError(
+                    $"[Starter] Modèle introuvable dans Resources : {StarterModelResourcePath}.", this);
+                return;
+            }
+
+            model = Instantiate(modelPrefab, transform, false);
+        }
+
+        model.name = "StarterBottle";
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.FromToRotation(Vector3.up, DirNormalized)
+            * Quaternion.Euler(0f, -90f, 0f);
+        model.transform.localScale = new Vector3(1.1f, 0.7f, 0.7f);
+
+        foreach (Collider modelCollider in model.GetComponentsInChildren<Collider>(true))
+        {
+            modelCollider.enabled = false;
+            Destroy(modelCollider);
+        }
+
+        MeshRenderer originalRenderer = GetComponent<MeshRenderer>();
+        if (originalRenderer != null)
+        {
+            originalRenderer.enabled = false;
         }
     }
 
