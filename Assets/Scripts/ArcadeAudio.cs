@@ -56,6 +56,74 @@ public static class ArcadeAudio
         return stormWind;
     }
 
+    private static AudioClip cestVrai;
+    private static AudioClip iut67;
+    private static AudioClip ballLost;
+    private static AudioClip gameOverVoice;
+    private static bool cestVraiTried;
+    private static bool iut67Tried;
+    private static bool ballLostTried;
+    private static bool gameOverTried;
+
+    /// <summary>Voix "C'est vrai" utilisée par les bumpers et les arbres.</summary>
+    public static AudioClip GetCestVrai()
+    {
+        if (!cestVraiTried)
+        {
+            cestVraiTried = true;
+            cestVrai = LoadClip("Audio/cest_vrai");
+        }
+
+        return cestVrai;
+    }
+
+    /// <summary>Voix "67" de l'IUT.</summary>
+    public static AudioClip GetIut67()
+    {
+        if (!iut67Tried)
+        {
+            iut67Tried = true;
+            iut67 = LoadClip("Audio/67");
+        }
+
+        return iut67;
+    }
+
+    /// <summary>Voix jouée à chaque bille perdue.</summary>
+    public static AudioClip GetBallLost()
+    {
+        if (!ballLostTried)
+        {
+            ballLostTried = true;
+            ballLost = LoadClip("Audio/fahhhhhhhhhhhhhh");
+        }
+
+        return ballLost;
+    }
+
+    /// <summary>Voix jouée à la fin de la partie.</summary>
+    public static AudioClip GetGameOverVoice()
+    {
+        if (!gameOverTried)
+        {
+            gameOverTried = true;
+            gameOverVoice = LoadClip("Audio/toc-toc-on-frappe-a-ma-porte");
+        }
+
+        return gameOverVoice;
+    }
+
+    private static AudioClip LoadClip(string resourcePath)
+    {
+        AudioClip clip = Resources.Load<AudioClip>(resourcePath);
+        if (clip == null)
+        {
+            Debug.LogWarning("[ArcadeAudio] Clip introuvable dans Resources : " + resourcePath);
+        }
+
+        return clip;
+    }
+
     private static void BuildTreeHits()
     {
         treeHits = new AudioClip[]

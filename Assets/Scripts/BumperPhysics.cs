@@ -284,16 +284,24 @@ public sealed class BumperPhysics : MonoBehaviour
 
         if (impactAudio != null)
         {
+            float loudness = Mathf.Lerp(0.7f, 1f, Mathf.Clamp01(impactSpeed / 35f));
+            AudioClip voice = ArcadeAudio.GetCestVrai();
+
+            if (voice != null)
+            {
+                // La voix "C'est vrai" reste reconnaissable : pitch quasi inchangé.
+                impactAudio.pitch = Random.Range(0.99f, 1.01f);
+                impactAudio.PlayOneShot(voice, Mathf.Max(impactSoundVolume, 0.8f) * loudness);
+                return;
+            }
+
             AudioClip clip = ArcadeAudio.GetBumperHit(Random.Range(0, 3));
             if (clip != null)
             {
                 float pitchMin = Mathf.Min(soundPitchRange.x, soundPitchRange.y);
                 float pitchMax = Mathf.Max(soundPitchRange.x, soundPitchRange.y);
                 impactAudio.pitch = Random.Range(pitchMin, pitchMax);
-
-                float volume = impactSoundVolume
-                    * Mathf.Lerp(0.7f, 1f, Mathf.Clamp01(impactSpeed / 35f));
-                impactAudio.PlayOneShot(clip, volume);
+                impactAudio.PlayOneShot(clip, impactSoundVolume * loudness);
             }
         }
     }
@@ -357,8 +365,11 @@ public sealed class BumperPhysics : MonoBehaviour
             return;
         }
 
-        // Pré-génère les sons pour éviter un micro-freeze au premier impact.
-        ArcadeAudio.GetBumperHit(0);
+        // Précharge la voix ; ne génère le son de secours que si elle est absente.
+        if (ArcadeAudio.GetCestVrai() == null)
+        {
+            ArcadeAudio.GetBumperHit(0);
+        }
 
         impactAudio = gameObject.AddComponent<AudioSource>();
         impactAudio.playOnAwake = false;

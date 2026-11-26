@@ -40,7 +40,10 @@ public sealed class ForestTree : MonoBehaviour
             visualBaseRotation = visual.localRotation;
         }
 
-        ArcadeAudio.GetTreeHit(0);
+        if (ArcadeAudio.GetCestVrai() == null)
+        {
+            ArcadeAudio.GetTreeHit(0);
+        }
 
         impactAudio = gameObject.AddComponent<AudioSource>();
         impactAudio.playOnAwake = false;
@@ -168,6 +171,16 @@ public sealed class ForestTree : MonoBehaviour
     {
         if (impactAudio == null)
         {
+            return;
+        }
+
+        float loudness = Mathf.Lerp(0.72f, 1f, Mathf.Clamp01(impactSpeed / 30f));
+        AudioClip voice = ArcadeAudio.GetCestVrai();
+
+        if (voice != null)
+        {
+            impactAudio.pitch = Random.Range(0.99f, 1.01f);
+            impactAudio.PlayOneShot(voice, Mathf.Max(impactSoundVolume, 0.7f) * loudness);
             return;
         }
 

@@ -11,10 +11,30 @@ public class IUTBumper : MonoBehaviour
 
     [Header("Optionnel")]
     [SerializeField] private AudioSource hitSound;
+    [SerializeField] private float hitSoundVolume = 0.9f;
+    [SerializeField] private float hitSoundCooldown = 0.5f;
     [SerializeField] private bool debugLogs = false;
 
     private float lastPushTime = -10f;
+    private float lastSoundTime = -10f;
     private readonly List<float> recentHits = new List<float>();
+
+    private void Awake()
+    {
+        if (hitSound == null)
+        {
+            hitSound = gameObject.AddComponent<AudioSource>();
+            hitSound.playOnAwake = false;
+            hitSound.spatialBlend = 0.6f;
+            hitSound.rolloffMode = AudioRolloffMode.Linear;
+            hitSound.minDistance = 10f;
+            hitSound.maxDistance = 80f;
+            hitSound.dopplerLevel = 0f;
+            hitSound.volume = 1f;
+        }
+
+        ArcadeAudio.GetIut67();
+    }
 
     private void OnCollisionEnter(Collision collision) => Push(collision, true);
     private void OnCollisionStay(Collision collision) => Push(collision, false);
@@ -97,7 +117,33 @@ public class IUTBumper : MonoBehaviour
                 PinballScore.Add(75, contact.point);
             }
         }
-        if (hitSound != null) hitSound.Play();
+        PlayHitSound();
+    }
+
+    private void PlayHitSound()
+    {
+        if (hitSound == null || hitSound.isPlaying)
+        {
+            return;
+        }
+
+        if (Time.time - lastSoundTime < hitSoundCooldown)
+        {
+            return;
+        }
+
+        lastSoundTime = Time.time;
+        AudioClip clip = ArcadeAudio.GetIut67();
+
+        if (clip != null)
+        {
+            hitSound.pitch = 1f;
+            hitSound.PlayOneShot(clip, hitSoundVolume);
+        }
+        else
+        {
+            hitSound.Play();
+        }
     }
 
     private IEnumerator ReapplyNextStep(Rigidbody rb, Vector3 velocity)
