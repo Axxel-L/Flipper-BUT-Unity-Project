@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
@@ -66,6 +67,21 @@ public sealed class ScoreboardUI : MonoBehaviour
     private readonly List<float> flakeSpeeds = new List<float>();
     private readonly List<float> flakePhases = new List<float>();
 
+    private RectTransform nameRoot;
+    private CanvasGroup nameGroup;
+    private Image nameDim;
+    private RectTransform namePanel;
+    private TMP_InputField nameInput;
+    private float namePanelScale = 0.94f;
+    private float namePanelScaleVelocity;
+    private float nameDimAlpha;
+    private float nameDimAlphaVelocity;
+    private float nameElapsed;
+    private float nameCloseTimer;
+    private bool nameVisible;
+    private bool nameClosing;
+    private bool nameFocusPending;
+
     private bool built;
     private bool gameOverVisible;
     private float restartEnabledAt;
@@ -124,7 +140,7 @@ public sealed class ScoreboardUI : MonoBehaviour
 
         if (manager != null)
         {
-            manager.ScoreChanged -= Refresh;
+            manager.ScoreChanged -= RefreshScore;
             manager.StateChanged -= Refresh;
             manager.ToastRequested -= ShowPlaqueMessage;
         }
@@ -133,7 +149,7 @@ public sealed class ScoreboardUI : MonoBehaviour
 
         if (manager != null)
         {
-            manager.ScoreChanged += Refresh;
+            manager.ScoreChanged += RefreshScore;
             manager.StateChanged += Refresh;
             manager.ToastRequested += ShowPlaqueMessage;
         }
@@ -143,7 +159,7 @@ public sealed class ScoreboardUI : MonoBehaviour
     {
         if (manager != null)
         {
-            manager.ScoreChanged -= Refresh;
+            manager.ScoreChanged -= RefreshScore;
             manager.StateChanged -= Refresh;
             manager.ToastRequested -= ShowPlaqueMessage;
         }
@@ -153,6 +169,7 @@ public sealed class ScoreboardUI : MonoBehaviour
     {
         Build();
         Refresh();
+        ShowNameEntry();
     }
 
     private void Update()
@@ -162,7 +179,7 @@ public sealed class ScoreboardUI : MonoBehaviour
             return;
         }
 
-        if (manager != null && manager.IsGameOver && gameOverVisible)
+        if (manager != null && manager.IsGameOver && gameOverVisible && !nameVisible)
         {
             bool restart = (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
                 || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
@@ -171,6 +188,7 @@ public sealed class ScoreboardUI : MonoBehaviour
             if (restart && Time.unscaledTime >= restartEnabledAt)
             {
                 manager.RestartGame();
+                ShowNameEntry();
             }
         }
 
@@ -178,6 +196,11 @@ public sealed class ScoreboardUI : MonoBehaviour
         UpdateComboState();
         UpdatePlaqueMessage();
         UpdateModal();
+
+        if (nameVisible)
+        {
+            UpdateNameModal();
+        }
     }
 
     private void Build()
@@ -216,6 +239,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         Stretch(popupLayer);
 
         BuildModal();
+        BuildNameModal();
         built = true;
     }
 
@@ -487,12 +511,7 @@ public sealed class ScoreboardUI : MonoBehaviour
             return;
         }
 
-        if (plaqueScore != null)
-        {
-            plaqueScore.text = manager.HasLaunched || manager.IsGameOver
-                ? "<size=55%><color=#C9A24B>SCORE</color></size>\n<size=115%>" + FormatScore(manager.Score) + "</size>"
-                : "<size=60%><color=#C9A24B>ESPACE</color></size>\n<size=115%>LANCER</size>";
-        }
+        RefreshScore();
 
         if (plaquePlayer != null)
         {
@@ -514,14 +533,34 @@ public sealed class ScoreboardUI : MonoBehaviour
 
         UpdateStatusPlaque();
 
+        lastComboActive = manager.ComboActive;
+        lastComboValue = manager.BumperCombo;
+    }
+
+    /// <summary>
+    /// Mise à jour légère appelée à chaque point : seul le score change.
+    /// Les autres plaques ne sont rafraîchies que sur changement d'état.
+    /// </summary>
+    private void RefreshScore()
+    {
+        if (!built || manager == null)
+        {
+            return;
+        }
+
+        if (plaqueScore != null)
+        {
+            plaqueScore.text = manager.HasLaunched || manager.IsGameOver
+                ? "<size=55%><color=#C9A24B>SCORE</color></size>\n<size=115%>" + FormatScore(manager.Score) + "</size>"
+                : "<size=60%><color=#C9A24B>ESPACE</color></size>\n<size=115%>LANCER</size>";
+        }
+
         if (manager.Score > lastScore)
         {
             scoreFlash = 1f;
         }
 
         lastScore = manager.Score;
-        lastComboActive = manager.ComboActive;
-        lastComboValue = manager.BumperCombo;
     }
 
     private void UpdateStatusPlaque()
@@ -704,8 +743,11 @@ public sealed class ScoreboardUI : MonoBehaviour
 
         modalPanel = CreateRect("Panel", modalRoot);
         modalPanel.anchorMin = modalPanel.anchorMax = new Vector2(0.5f, 0.5f);
-        modalPanel.sizeDelta = new Vector2(680f, 430f);
+        modalPanel.pivot = new Vector2(0.5f, 0.5f);
+        modalPanel.sizeDelta = new Vector2(640f, 430f);
         modalPanel.anchoredPosition = new Vector2(0f, -10f);
+        // Même orientation que les plaques de score du backglass (rotation à droite).
+        modalPanel.localEulerAngles = new Vector3(0f, 0f, -90f);
 
         modalPanelImage = modalPanel.gameObject.AddComponent<Image>();
         modalPanelImage.sprite = panelSprite;
@@ -763,6 +805,242 @@ public sealed class ScoreboardUI : MonoBehaviour
         CreateFlakes();
 
         modalRoot.gameObject.SetActive(false);
+    }
+
+    private void BuildNameModal()
+    {
+        nameRoot = CreateRect("NameEntry", canvas.transform);
+        Stretch(nameRoot);
+        nameGroup = nameRoot.gameObject.AddComponent<CanvasGroup>();
+        nameGroup.interactable = true;
+        nameGroup.blocksRaycasts = true;
+
+        nameDim = CreateImage("Dim", nameRoot, null, new Color(0f, 0f, 0f, 0f));
+        Stretch(nameDim.rectTransform);
+
+        namePanel = CreateRect("Panel", nameRoot);
+        namePanel.anchorMin = namePanel.anchorMax = new Vector2(0.5f, 0.5f);
+        namePanel.pivot = new Vector2(0.5f, 0.5f);
+        namePanel.sizeDelta = new Vector2(640f, 430f);
+        namePanel.anchoredPosition = new Vector2(0f, -10f);
+        // Même orientation que les plaques du backglass.
+        namePanel.localEulerAngles = new Vector3(0f, 0f, -90f);
+
+        Image panelImage = namePanel.gameObject.AddComponent<Image>();
+        panelImage.sprite = panelSprite;
+        panelImage.type = Image.Type.Sliced;
+        panelImage.raycastTarget = true;
+
+        Image highlight = CreateImage("Highlight", namePanel, null, new Color(1f, 0.9f, 0.65f, 0.12f));
+        Place(highlight.rectTransform, new Vector2(0f, 198f), new Vector2(560f, 1f));
+
+        TextMeshProUGUI title = CreateText("Title", namePanel, "BIENVENUE", 62f, displayFont, WarmWhite);
+        Place(title.rectTransform, new Vector2(0f, 128f), new Vector2(600f, 92f));
+        title.characterSpacing = -2f;
+        AddUnderlay(title, new Color(0f, 0f, 0f, 0.55f), 0.3f, 2.5f);
+
+        TextMeshProUGUI subtitle = CreateText("Subtitle", namePanel, "QUEL EST TON NOM ?", 20f, labelFont, GoldMuted);
+        Place(subtitle.rectTransform, new Vector2(0f, 64f), new Vector2(600f, 26f));
+        subtitle.characterSpacing = 8f;
+
+        GameObject fieldObject = new GameObject("NameField", typeof(RectTransform));
+        fieldObject.transform.SetParent(namePanel, false);
+        Image fieldImage = fieldObject.AddComponent<Image>();
+        fieldImage.sprite = pillSprite;
+        fieldImage.type = Image.Type.Sliced;
+        fieldImage.color = new Color(0.055f, 0.047f, 0.038f, 0.98f);
+        fieldImage.raycastTarget = true;
+        RectTransform fieldRect = (RectTransform)fieldObject.transform;
+        Place(fieldRect, new Vector2(0f, -14f), new Vector2(520f, 74f));
+
+        RectTransform viewport = CreateRect("Text Area", fieldObject.transform);
+        Stretch(viewport);
+        viewport.offsetMin = new Vector2(26f, 8f);
+        viewport.offsetMax = new Vector2(-26f, -8f);
+
+        TextMeshProUGUI inputText = CreateText("Text", viewport, string.Empty, 38f, displayFont, WarmWhite);
+        Stretch(inputText.rectTransform);
+        inputText.alignment = TextAlignmentOptions.Center;
+        inputText.textWrappingMode = TextWrappingModes.NoWrap;
+
+        TextMeshProUGUI placeholder = CreateText("Placeholder", viewport, "TON NOM", 38f, displayFont,
+            new Color(0.66f, 0.6f, 0.5f, 0.45f));
+        Stretch(placeholder.rectTransform);
+        placeholder.alignment = TextAlignmentOptions.Center;
+        placeholder.textWrappingMode = TextWrappingModes.NoWrap;
+
+        nameInput = fieldObject.AddComponent<TMP_InputField>();
+        nameInput.targetGraphic = fieldImage;
+        nameInput.textViewport = viewport;
+        nameInput.textComponent = inputText;
+        nameInput.placeholder = placeholder;
+        nameInput.lineType = TMP_InputField.LineType.SingleLine;
+        nameInput.contentType = TMP_InputField.ContentType.Name;
+        nameInput.characterValidation = TMP_InputField.CharacterValidation.Name;
+        nameInput.characterLimit = 15;
+        nameInput.caretColor = Gold;
+        nameInput.selectionColor = new Color(0.92f, 0.76f, 0.43f, 0.35f);
+        nameInput.caretWidth = 2;
+        nameInput.onSubmit.AddListener(OnNameSubmitted);
+
+        GameObject buttonObject = new GameObject("PlayButton", typeof(RectTransform));
+        buttonObject.transform.SetParent(namePanel, false);
+        Image buttonImage = buttonObject.AddComponent<Image>();
+        buttonImage.sprite = pillSprite;
+        buttonImage.type = Image.Type.Sliced;
+        buttonImage.color = new Color(0.86f, 0.7f, 0.4f, 0.95f);
+        RectTransform buttonRect = (RectTransform)buttonObject.transform;
+        Place(buttonRect, new Vector2(0f, -100f), new Vector2(330f, 50f));
+
+        Button button = buttonObject.AddComponent<Button>();
+        button.targetGraphic = buttonImage;
+        button.transition = Selectable.Transition.None;
+        button.onClick.AddListener(SubmitName);
+
+        TextMeshProUGUI buttonText = CreateText("Label", buttonObject.transform, "JOUER", 24f, labelFont,
+            new Color(0.12f, 0.08f, 0.03f, 1f));
+        Stretch(buttonText.rectTransform);
+        buttonText.alignment = TextAlignmentOptions.Center;
+        buttonText.characterSpacing = 8f;
+
+        TextMeshProUGUI hint = CreateText("Hint", namePanel, "ENTRÉE POUR VALIDER", 11f, bodyFont, Muted);
+        Place(hint.rectTransform, new Vector2(0f, -138f), new Vector2(400f, 18f));
+        hint.characterSpacing = 6f;
+
+        nameRoot.gameObject.SetActive(false);
+    }
+
+    /// <summary>Ferme immédiatement la saisie du nom (ex. bouton Quit).</summary>
+    public void HideNameEntry()
+    {
+        if (nameRoot == null)
+        {
+            return;
+        }
+
+        nameVisible = false;
+        nameClosing = false;
+        nameFocusPending = false;
+
+        if (nameInput != null)
+        {
+            nameInput.DeactivateInputField();
+        }
+
+        if (EventSystem.current != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+        }
+
+        nameRoot.gameObject.SetActive(false);
+    }
+
+    private void ShowNameEntry()
+    {
+        if (!built || nameRoot == null || manager == null)
+        {
+            return;
+        }
+
+        nameVisible = true;
+        nameClosing = false;
+        nameCloseTimer = 0f;
+        nameElapsed = 0f;
+        nameFocusPending = true;
+        namePanelScale = 0.94f;
+        namePanelScaleVelocity = 0f;
+        nameDimAlpha = 0f;
+        nameDimAlphaVelocity = 0f;
+
+        nameRoot.gameObject.SetActive(true);
+        nameRoot.SetAsLastSibling();
+        nameGroup.alpha = 1f;
+        nameGroup.interactable = true;
+        nameGroup.blocksRaycasts = true;
+        namePanel.localScale = Vector3.one * namePanelScale;
+        namePanel.anchoredPosition = new Vector2(0f, -10f);
+        nameDim.color = new Color(0f, 0f, 0f, 0f);
+
+        if (nameInput != null)
+        {
+            nameInput.text = manager.PlayerName;
+        }
+
+        manager.SetLaunchLocked(true);
+    }
+
+    private void UpdateNameModal()
+    {
+        if (nameClosing)
+        {
+            nameCloseTimer += Time.unscaledDeltaTime;
+            nameGroup.alpha = Mathf.Clamp01(1f - nameCloseTimer / 0.18f);
+
+            if (nameCloseTimer >= 0.18f)
+            {
+                nameGroup.alpha = 1f;
+                nameRoot.gameObject.SetActive(false);
+                nameVisible = false;
+                nameClosing = false;
+            }
+
+            return;
+        }
+
+        float dt = Mathf.Min(Time.unscaledDeltaTime, 1f / 30f);
+        nameElapsed += dt;
+
+        // Focus différé : évite que l'Espace utilisé pour relancer la partie
+        // soit inséré dans le champ de saisie.
+        if (nameFocusPending && nameElapsed >= 0.05f)
+        {
+            nameFocusPending = false;
+
+            if (nameInput != null)
+            {
+                nameInput.ActivateInputField();
+                nameInput.caretPosition = nameInput.text.Length;
+                nameInput.selectionAnchorPosition = 0;
+                nameInput.selectionFocusPosition = nameInput.text.Length;
+            }
+        }
+
+        Spring(ref namePanelScale, ref namePanelScaleVelocity, 1f, 0.82f, 3.2f, dt);
+        Spring(ref nameDimAlpha, ref nameDimAlphaVelocity, 0.9f, 1f, 5f, dt);
+
+        namePanel.localScale = new Vector3(namePanelScale, namePanelScale, 1f);
+        nameDim.color = new Color(0f, 0f, 0f, nameDimAlpha);
+    }
+
+    private void OnNameSubmitted(string value)
+    {
+        SubmitName();
+    }
+
+    private void SubmitName()
+    {
+        if (!nameVisible || nameClosing || manager == null)
+        {
+            return;
+        }
+
+        manager.SetPlayerName(nameInput != null ? nameInput.text : null);
+        manager.SetLaunchLocked(false);
+
+        if (nameInput != null)
+        {
+            nameInput.DeactivateInputField();
+        }
+
+        if (EventSystem.current != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+        }
+
+        nameClosing = true;
+        nameCloseTimer = 0f;
+        nameGroup.interactable = false;
+        nameGroup.blocksRaycasts = false;
     }
 
     private void CreateFlakes()

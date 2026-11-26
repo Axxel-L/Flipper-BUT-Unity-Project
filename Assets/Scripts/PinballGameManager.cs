@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -14,6 +15,10 @@ public sealed class PinballGameManager : MonoBehaviour
     [Header("Partie")]
     [Min(1)] public int startingBalls = 3;
     public string defaultPlayerName = "AXEL L";
+
+    [Header("Voix")]
+    [Range(0f, 1f)] public float ballLostVolume = 0.9f;
+    [Range(0f, 1f)] public float gameOverVolume = 0.9f;
 
     [Header("Points")]
     [Min(1)] public int treePoints = 25;
@@ -43,15 +48,46 @@ public sealed class PinballGameManager : MonoBehaviour
     public HighScore Top1 { get; private set; }
     public HighScore Top2 { get; private set; }
 
+    /// <summary>Meilleurs scores locaux, du plus haut au plus bas.</summary>
+    public IReadOnlyList<HighScore> Leaderboard => leaderboard;
+
+    /// <summary>Meilleur score du joueur actuel (persisté par nom).</summary>
+    public int PlayerBestScore { get; private set; }
+
+    /// <summary>Meilleur score toutes parties confondues sur cette machine.</summary>
+    public int BestScore { get; private set; }
+
+    public int LastScore { get; private set; }
+    public int GamesPlayed { get; private set; }
+
     public event Action ScoreChanged;
     public event Action StateChanged;
     public event Action<string> ToastRequested;
 
+    [Serializable]
     public struct HighScore
     {
         public string name;
         public int score;
     }
+
+    public const int MaxLeaderboardEntries = 8;
+
+    private const string LeaderboardKey = "flipper.leaderboard.v1";
+    private const string BestScoreKey = "flipper.bestScore";
+    private const string LastScoreKey = "flipper.lastScore";
+    private const string GamesPlayedKey = "flipper.gamesPlayed";
+    private const string PlayerBestPrefix = "flipper.playerBest.";
+
+    [Serializable]
+    private sealed class LeaderboardData
+    {
+        public List<HighScore> scores = new List<HighScore>();
+    }
+
+    private static readonly Comparison<HighScore> HighScoreComparison = CompareHighScores;
+
+    private readonly List<HighScore> leaderboard = new List<HighScore>(MaxLeaderboardEntries);
 
     private float lastBumperTime = -99f;
     private bool hasLaunched;
@@ -69,6 +105,7 @@ public sealed class PinballGameManager : MonoBehaviour
     private SnowStormEvent storm;
     private Coroutine resetRoutine;
     private Rigidbody ball;
+    private AudioSource voiceAudio;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Boot()
@@ -110,7 +147,12 @@ public sealed class PinballGameManager : MonoBehaviour
 
         initialized = true;
         PlayerName = PlayerPrefs.GetString("flipper.playerName", defaultPlayerName);
-        LoadHighScores();
+        BestScore = PlayerPrefs.GetInt(BestScoreKey, 0);
+        LastScore = PlayerPrefs.GetInt(LastScoreKey, 0);
+        GamesPlayed = PlayerPrefs.GetInt(GamesPlayedKey, 0);
+        PlayerBestScore = LoadPlayerBest(PlayerName);
+        LoadLeaderboard();
+        EnsureVoiceAudio();
 
         Score = 0;
         Balls = startingBalls;
@@ -170,9 +212,10 @@ public sealed class PinballGameManager : MonoBehaviour
             return;
         }
 
-        if (rb.linearVelocity.magnitude > 5f)
+        if (!hasLaunched && rb.linearVelocity.sqrMagnitude > 25f)
         {
             hasLaunched = true;
+            ScoreChanged?.Invoke();
         }
 
         if (!hasLaunched)
@@ -289,6 +332,38 @@ public sealed class PinballGameManager : MonoBehaviour
         StateChanged?.Invoke();
     }
 
+    private void EnsureVoiceAudio()
+    {
+        if (voiceAudio != null)
+        {
+            return;
+        }
+
+        // AudioSource dédiée sur un enfant : le vent de tempête utilise déjà
+        // l'AudioSource du GameObject principal, on évite tout conflit.
+        GameObject host = new GameObject("Voice Audio");
+        host.transform.SetParent(transform, false);
+        voiceAudio = host.AddComponent<AudioSource>();
+        voiceAudio.playOnAwake = false;
+        voiceAudio.spatialBlend = 0f;
+        voiceAudio.dopplerLevel = 0f;
+        voiceAudio.volume = 1f;
+
+        ArcadeAudio.GetBallLost();
+        ArcadeAudio.GetGameOverVoice();
+    }
+
+    private void PlayVoice(AudioClip clip, float volume)
+    {
+        if (voiceAudio == null || clip == null)
+        {
+            return;
+        }
+
+        voiceAudio.Stop();
+        voiceAudio.PlayOneShot(clip, Mathf.Clamp01(volume));
+    }
+
     public void RegisterDrain()
     {
         if (IsGameOver || resetRoutine != null)
@@ -304,6 +379,7 @@ public sealed class PinballGameManager : MonoBehaviour
             return;
         }
 
+        PlayVoice(ArcadeAudio.GetBallLost(), ballLostVolume);
         StateChanged?.Invoke();
         ToastRequested?.Invoke("BILLE PERDUE\n" + Balls + " RESTANTE" + (Balls > 1 ? "S" : ""));
         resetRoutine = StartCoroutine(ResetAfterDelay(1.1f));
@@ -369,6 +445,7 @@ public sealed class PinballGameManager : MonoBehaviour
             rb.useGravity = false;
         }
 
+        PlayVoice(ArcadeAudio.GetGameOverVoice(), gameOverVolume);
         UpdateHighScores();
         StateChanged?.Invoke();
         scoreboard?.ShowGameOver();
@@ -380,6 +457,11 @@ public sealed class PinballGameManager : MonoBehaviour
         {
             StopCoroutine(resetRoutine);
             resetRoutine = null;
+        }
+
+        if (voiceAudio != null)
+        {
+            voiceAudio.Stop();
         }
 
         Score = 0;
@@ -397,44 +479,196 @@ public sealed class PinballGameManager : MonoBehaviour
         StateChanged?.Invoke();
     }
 
+    /// <summary>Termine immédiatement la partie (bouton Quit physique).</summary>
+    public void EndGame()
+    {
+        if (IsGameOver)
+        {
+            return;
+        }
+
+        if (resetRoutine != null)
+        {
+            StopCoroutine(resetRoutine);
+            resetRoutine = null;
+        }
+
+        Balls = 0;
+        scoreboard?.HideNameEntry();
+        GameOver();
+    }
+
+    /// <summary>Enregistre le nom du joueur (classement) et rafraîchit le tableau.</summary>
+    public void SetPlayerName(string playerName)
+    {
+        string cleaned = string.IsNullOrWhiteSpace(playerName) ? defaultPlayerName : playerName.Trim();
+        if (cleaned.Length > 15)
+        {
+            cleaned = cleaned.Substring(0, 15);
+        }
+
+        PlayerName = cleaned;
+        PlayerBestScore = LoadPlayerBest(cleaned);
+        PlayerPrefs.SetString("flipper.playerName", cleaned);
+        PlayerPrefs.Save();
+        StateChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Bloque ou libère le lancement. Utilisé par le modal de saisie du nom
+    /// pour éviter qu'Espace ne déclenche le starter pendant la frappe.
+    /// </summary>
+    public void SetLaunchLocked(bool locked)
+    {
+        InputLockUntil = locked ? float.PositiveInfinity : Time.time + 0.35f;
+    }
+
     private void UpdateHighScores()
     {
-        int best = Score;
-
-        if (best > Top1.score)
+        LastScore = Score;
+        GamesPlayed++;
+        if (Score > BestScore)
         {
-            Top2 = Top1;
-            Top1 = new HighScore { name = PlayerName, score = best };
-        }
-        else if (best > Top2.score)
-        {
-            Top2 = new HighScore { name = PlayerName, score = best };
+            BestScore = Score;
         }
 
-        SaveHighScores();
+        if (Score > 0)
+        {
+            if (Score > PlayerBestScore)
+            {
+                PlayerBestScore = Score;
+                PlayerPrefs.SetInt(PlayerBestPrefix + PlayerKey(PlayerName), PlayerBestScore);
+            }
+
+            leaderboard.Add(new HighScore { name = PlayerName, score = Score });
+            SortAndTrimLeaderboard();
+            RefreshTopTwo();
+        }
+
+        SaveLeaderboard();
     }
 
-    private void LoadHighScores()
+    private void LoadLeaderboard()
     {
-        Top1 = new HighScore
+        leaderboard.Clear();
+        bool migrated = false;
+
+        string json = PlayerPrefs.GetString(LeaderboardKey, string.Empty);
+        if (!string.IsNullOrEmpty(json))
         {
-            name = PlayerPrefs.GetString("flipper.top1.name", "AXEL L"),
-            score = PlayerPrefs.GetInt("flipper.top1.score", 20000)
-        };
-        Top2 = new HighScore
+            try
+            {
+                LeaderboardData data = JsonUtility.FromJson<LeaderboardData>(json);
+                if (data != null && data.scores != null)
+                {
+                    for (int i = 0; i < data.scores.Count; i++)
+                    {
+                        HighScore entry = data.scores[i];
+                        if (string.IsNullOrEmpty(entry.name))
+                        {
+                            entry.name = defaultPlayerName;
+                        }
+
+                        if (entry.score > 0)
+                        {
+                            leaderboard.Add(entry);
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                leaderboard.Clear();
+            }
+        }
+
+        if (leaderboard.Count == 0)
         {
-            name = PlayerPrefs.GetString("flipper.top2.name", "MARC"),
-            score = PlayerPrefs.GetInt("flipper.top2.score", 12000)
-        };
+            // Migration des anciennes clés top1/top2 (ou valeurs de démo).
+            AddSeedScore(PlayerPrefs.GetString("flipper.top1.name", "AXEL L"),
+                PlayerPrefs.GetInt("flipper.top1.score", 20000));
+            AddSeedScore(PlayerPrefs.GetString("flipper.top2.name", "MARC"),
+                PlayerPrefs.GetInt("flipper.top2.score", 12000));
+            migrated = true;
+        }
+
+        SortAndTrimLeaderboard();
+        RefreshTopTwo();
+
+        if (migrated)
+        {
+            SaveLeaderboard();
+        }
     }
 
-    private void SaveHighScores()
+    private void SaveLeaderboard()
     {
+        LeaderboardData data = new LeaderboardData();
+        data.scores.AddRange(leaderboard);
+
+        PlayerPrefs.SetString(LeaderboardKey, JsonUtility.ToJson(data));
+        PlayerPrefs.SetInt(BestScoreKey, BestScore);
+        PlayerPrefs.SetInt(LastScoreKey, LastScore);
+        PlayerPrefs.SetInt(GamesPlayedKey, GamesPlayed);
+
+        // Rétro-compatibilité : les anciennes clés top1/top2 restent synchronisées
+        // et servent de secours si le JSON du classement est perdu.
         PlayerPrefs.SetString("flipper.top1.name", Top1.name);
         PlayerPrefs.SetInt("flipper.top1.score", Top1.score);
         PlayerPrefs.SetString("flipper.top2.name", Top2.name);
         PlayerPrefs.SetInt("flipper.top2.score", Top2.score);
         PlayerPrefs.Save();
+    }
+
+    private void AddSeedScore(string entryName, int entryScore)
+    {
+        if (entryScore <= 0)
+        {
+            return;
+        }
+
+        leaderboard.Add(new HighScore
+        {
+            name = string.IsNullOrEmpty(entryName) ? defaultPlayerName : entryName,
+            score = entryScore
+        });
+    }
+
+    private void SortAndTrimLeaderboard()
+    {
+        leaderboard.Sort(HighScoreComparison);
+
+        if (leaderboard.Count > MaxLeaderboardEntries)
+        {
+            leaderboard.RemoveRange(MaxLeaderboardEntries, leaderboard.Count - MaxLeaderboardEntries);
+        }
+    }
+
+    private void RefreshTopTwo()
+    {
+        Top1 = leaderboard.Count > 0 ? leaderboard[0] : new HighScore { name = "---", score = 0 };
+        Top2 = leaderboard.Count > 1 ? leaderboard[1] : new HighScore { name = "---", score = 0 };
+    }
+
+    private static int CompareHighScores(HighScore a, HighScore b)
+    {
+        return b.score.CompareTo(a.score);
+    }
+
+    private static int LoadPlayerBest(string playerName)
+    {
+        return PlayerPrefs.GetInt(PlayerBestPrefix + PlayerKey(playerName), 0);
+    }
+
+    private static string PlayerKey(string playerName)
+    {
+        if (string.IsNullOrEmpty(playerName))
+        {
+            return "default";
+        }
+
+        string key = playerName.Trim().ToUpperInvariant().Replace(' ', '_');
+        return key.Length == 0 ? "default" : key;
     }
 
     private Rigidbody Ball
