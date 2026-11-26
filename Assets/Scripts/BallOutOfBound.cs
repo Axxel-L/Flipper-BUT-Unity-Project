@@ -7,13 +7,22 @@ public class BallOutOfBounds : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Ball"))
+        if (!other.CompareTag("Ball"))
         {
-            Debug.LogWarning(
-                $"[Bille][Diagnostic] Reset demandée par le trigger '{other.name}' " +
-                $"depuis '{name}' à t={Time.time:F3}.", this);
-            ResetBall(other.attachedRigidbody);
+            return;
         }
+
+        PinballGameManager manager = PinballGameManager.Instance;
+        if (manager != null)
+        {
+            manager.RegisterDrain();
+            return;
+        }
+
+        Debug.LogWarning(
+            $"[Bille][Diagnostic] Reset demandée par le trigger '{other.name}' " +
+            $"depuis '{name}' à t={Time.time:F3}.", this);
+        ResetBall(other.attachedRigidbody);
     }
 
     private void ResetBall(Rigidbody ballRb)

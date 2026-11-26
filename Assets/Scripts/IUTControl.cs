@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
@@ -10,9 +11,10 @@ public class IUTBumper : MonoBehaviour
 
     [Header("Optionnel")]
     [SerializeField] private AudioSource hitSound;
-    [SerializeField] private bool debugLogs = true;
+    [SerializeField] private bool debugLogs = false;
 
     private float lastPushTime = -10f;
+    private readonly List<float> recentHits = new List<float>();
 
     private void OnCollisionEnter(Collision collision) => Push(collision, true);
     private void OnCollisionStay(Collision collision) => Push(collision, false);
@@ -25,6 +27,23 @@ public class IUTBumper : MonoBehaviour
         if (ballRb == null) return;
 
         if (Time.time - lastPushTime < 0.2f) return;
+
+        PinballGameManager manager = PinballGameManager.Instance;
+        bool breakStuck = false;
+
+        if (manager != null)
+        {
+            manager.NotifyImpact(transform.position);
+            float now = Time.time;
+            recentHits.Add(now);
+            recentHits.RemoveAll(time => now - time > 1.5f);
+
+            if (recentHits.Count >= 4)
+            {
+                recentHits.Clear();
+                breakStuck = true;
+            }
+        }
 
         ContactPoint contact = collision.GetContact(0);
 
@@ -56,9 +75,28 @@ public class IUTBumper : MonoBehaviour
 
         ballRb.linearVelocity = newVelocity;
         lastPushTime = Time.time;
-        StartCoroutine(ReapplyNextStep(ballRb, newVelocity));
 
-        if (addScore) PinballScore.Add(100);
+        if (!breakStuck)
+        {
+            StartCoroutine(ReapplyNextStep(ballRb, newVelocity));
+        }
+
+        if (breakStuck && manager != null)
+        {
+            manager.TryKickStuckBall(ballRb, true);
+        }
+
+        if (addScore)
+        {
+            if (PinballGameManager.Instance != null)
+            {
+                PinballGameManager.Instance.AddScore(PinballGameManager.Instance.iutPoints, contact.point);
+            }
+            else
+            {
+                PinballScore.Add(75, contact.point);
+            }
+        }
         if (hitSound != null) hitSound.Play();
     }
 
