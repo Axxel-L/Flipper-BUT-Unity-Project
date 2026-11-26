@@ -26,7 +26,24 @@ public class Slingshot : MonoBehaviour
             dir = (collision.transform.position - transform.position);
         }
 
-        dir.y = 0f; // garde le mouvement à plat (retire cette ligne si tu veux de la hauteur)
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.0001f)
+        {
+            dir = rb.worldCenterOfMass - transform.position;
+            dir.y = 0f;
+        }
+
+        if (dir.sqrMagnitude < 0.0001f)
+        {
+            dir = transform.right;
+            dir.y = 0f;
+        }
+
+        if (dir.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
         dir.Normalize();
 
         rb.linearVelocity = dir * force;

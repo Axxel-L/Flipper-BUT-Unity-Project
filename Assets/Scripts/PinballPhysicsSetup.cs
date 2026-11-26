@@ -56,6 +56,7 @@ public sealed class PinballPhysicsSetup : MonoBehaviour
     {
         Physics.gravity = CalculateGravity();
         AddMissingColliders();
+        ConfigureSlingshotColliders();
         DisableKnownBlockingColliders();
         ConfigureExitTriggers();
     }
@@ -221,6 +222,29 @@ public sealed class PinballPhysicsSetup : MonoBehaviour
         Rigidbody body = target.GetComponent<Rigidbody>();
         MeshFilter[] meshFilters = target.GetComponentsInChildren<MeshFilter>();
 
+        if (target.name.StartsWith("Blocker", StringComparison.OrdinalIgnoreCase))
+        {
+            for (int i = 0; i < meshFilters.Length; i++)
+            {
+                MeshFilter meshFilter = meshFilters[i];
+                if (meshFilter.sharedMesh == null || meshFilter.GetComponent<Collider>() != null)
+                {
+                    continue;
+                }
+
+                Bounds bounds = meshFilter.sharedMesh.bounds;
+                CapsuleCollider capsule = meshFilter.gameObject.AddComponent<CapsuleCollider>();
+                capsule.center = bounds.center;
+                capsule.direction = 0;
+                capsule.radius = Mathf.Min(bounds.size.y, bounds.size.z) * 0.5f;
+                capsule.height = Mathf.Max(bounds.size.x, capsule.radius * 2f);
+                return;
+            }
+
+            Debug.LogWarning($"Le blocker {target.name} ne possède aucun mesh utilisable pour sa collision.", target);
+            return;
+        }
+
         for (int i = 0; i < meshFilters.Length; i++)
         {
             MeshFilter meshFilter = meshFilters[i];
@@ -235,14 +259,6 @@ public sealed class PinballPhysicsSetup : MonoBehaviour
             meshCollider.cookingOptions = MeshColliderCookingOptions.CookForFasterSimulation
                 | MeshColliderCookingOptions.EnableMeshCleaning
                 | MeshColliderCookingOptions.WeldColocatedVertices;
-            return;
-        }
-
-        // Un blocker doit utiliser sa géométrie réelle. Un BoxCollider englobant
-        // créerait des surfaces invisibles qui peuvent fermer la voie de lancement.
-        if (target.name.StartsWith("Blocker", StringComparison.OrdinalIgnoreCase))
-        {
-            Debug.LogWarning($"Le blocker {target.name} ne possède aucun mesh utilisable pour sa collision.", target);
             return;
         }
 
@@ -265,5 +281,78 @@ public sealed class PinballPhysicsSetup : MonoBehaviour
             Mathf.Abs(localSize.y) + colliderPadding,
             Mathf.Abs(localSize.z) + colliderPadding);
         boxCollider.center = target.InverseTransformPoint(worldBounds.center);
+    }
+
+    private static void ConfigureSlingshotColliders()
+    {
+        Slingshot[] slingshots = FindObjectsByType<Slingshot>(FindObjectsInactive.Exclude);
+        foreach (Slingshot slingshot in slingshots)
+        {
+            MeshFilter[] meshFilters = slingshot.GetComponentsInChildren<MeshFilter>(true);
+            Bounds localBounds = default;
+            bool hasBounds = false;
+
+            foreach (MeshFilter meshFilter in meshFilters)
+            {
+                if (meshFilter.sharedMesh == null)
+                {
+                    continue;
+                }
+
+                Bounds meshBounds = meshFilter.sharedMesh.bounds;
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    Vector3 point = new Vector3(
+                        (corner & 1) == 0 ? meshBounds.min.x : meshBounds.max.x,
+                        (corner & 2) == 0 ? meshBounds.min.y : meshBounds.max.y,
+                        (corner & 4) == 0 ? meshBounds.min.z : meshBounds.max.z);
+                    Vector3 localPoint = slingshot.transform.InverseTransformPoint(
+                        meshFilter.transform.TransformPoint(point));
+
+                    if (!hasBounds)
+                    {
+                        localBounds = new Bounds(localPoint, Vector3.zero);
+                        hasBounds = true;
+                    }
+                    else
+                    {
+                        localBounds.Encapsulate(localPoint);
+                    }
+                }
+            }
+
+            if (!hasBounds)
+            {
+                Debug.LogWarning($"Le slingshot {slingshot.name} ne possède aucun mesh pour calculer son collider.", slingshot);
+                continue;
+            }
+
+            Vector3 size = localBounds.size;
+            int direction = size.x >= size.y && size.x >= size.z
+                ? 0
+                : size.y >= size.z ? 1 : 2;
+            float axialSize = direction == 0 ? size.x : direction == 1 ? size.y : size.z;
+            float radius = direction == 0
+                ? Mathf.Min(size.y, size.z) * 0.5f
+                : direction == 1
+                    ? Mathf.Min(size.x, size.z) * 0.5f
+                    : Mathf.Min(size.x, size.y) * 0.5f;
+
+            CapsuleCollider capsule = slingshot.GetComponent<CapsuleCollider>();
+            if (capsule == null)
+            {
+                capsule = slingshot.gameObject.AddComponent<CapsuleCollider>();
+            }
+
+            capsule.center = localBounds.center;
+            capsule.direction = direction;
+            capsule.radius = Mathf.Max(0.01f, radius);
+            capsule.height = Mathf.Max(axialSize, capsule.radius * 2f);
+
+            foreach (MeshCollider meshCollider in slingshot.GetComponentsInChildren<MeshCollider>(true))
+            {
+                meshCollider.enabled = false;
+            }
+        }
     }
 }
