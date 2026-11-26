@@ -226,8 +226,12 @@ public class SlingshotMover : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / punchDuration);
             transform.localPosition = Vector3.Lerp(from, punchedPosition, t);
 
-            // On mémorise le contact : en fin de coup la bille est déjà devant le starter.
-            if (!touchedBall && PlungerTouchesBall()) touchedBall = true;
+            // Mémorise un contact réel ou une bille suffisamment proche.
+            // Cette tolérance corrige les lancements ratés après une remise en jeu.
+            if (!touchedBall && (PlungerTouchesBall() || PlungerCanReachBall()))
+            {
+                touchedBall = true;
+            }
 
             yield return null;
         }
@@ -245,6 +249,21 @@ public class SlingshotMover : MonoBehaviour
         if (plungerCollider == null || ballCollider == null) return false;
 
         return plungerCollider.bounds.Intersects(ballCollider.bounds);
+    }
+
+    /// <summary>
+    /// Détection tolérante pour les tirs suivants : elle évite qu'un court décalage
+    /// entre la bille et le starter fasse rater complètement l'impulsion.
+    /// </summary>
+    private bool PlungerCanReachBall()
+    {
+        if (launchedThisShot) return false;
+        if (plungerCollider == null || ball == null) return false;
+
+        // 2 unités couvrent le recul, le rayon de la bille et la tolérance du mouvement.
+        float reach = Mathf.Max(2f, punchDistance + 1f);
+        float distanceSquared = plungerCollider.bounds.SqrDistance(ball.worldCenterOfMass);
+        return distanceSquared <= reach * reach;
     }
 
     /// <summary>Donne son impulsion à la bille, le long de l'axe de tir.</summary>

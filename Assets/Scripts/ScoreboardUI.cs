@@ -959,7 +959,7 @@ public sealed class ScoreboardUI : MonoBehaviour
 
     private MeshFilter FindScoreMesh()
     {
-        foreach (MeshFilter filter in FindObjectsByType<MeshFilter>(FindObjectsSortMode.None))
+        foreach (MeshFilter filter in FindObjectsByType<MeshFilter>())
         {
             if (filter.name == "Score" && filter.sharedMesh != null)
             {
