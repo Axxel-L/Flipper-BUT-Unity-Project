@@ -73,6 +73,9 @@ public sealed class ScoreboardUI : MonoBehaviour
     private RectTransform namePanel;
     private TMP_InputField nameInput;
     private Toggle funToggle;
+    private Image funToggleBox;
+    private GameObject funToggleCheckmark;
+    private TextMeshProUGUI funToggleLabel;
     private float namePanelScale = 0.94f;
     private float namePanelScaleVelocity;
     private float nameDimAlpha;
@@ -885,41 +888,45 @@ public sealed class ScoreboardUI : MonoBehaviour
         nameInput.onSubmit.AddListener(OnNameSubmitted);
 
         RectTransform toggleRow = CreateRect("FunSounds", namePanel);
-        Place(toggleRow, new Vector2(0f, -70f), new Vector2(520f, 28f));
+        Place(toggleRow, new Vector2(0f, -70f), new Vector2(520f, 32f));
 
         GameObject toggleBoxObject = new GameObject("Checkbox", typeof(RectTransform));
         toggleBoxObject.transform.SetParent(toggleRow, false);
         Image toggleBoxImage = toggleBoxObject.AddComponent<Image>();
-        toggleBoxImage.sprite = pillSprite;
-        toggleBoxImage.type = Image.Type.Sliced;
-        toggleBoxImage.color = new Color(0.055f, 0.047f, 0.038f, 0.98f);
+        toggleBoxImage.sprite = null;
+        toggleBoxImage.type = Image.Type.Simple;
+        toggleBoxImage.color = new Color(0.88f, 0.82f, 0.68f, 0.96f);
         toggleBoxImage.raycastTarget = true;
         RectTransform toggleBoxRect = (RectTransform)toggleBoxObject.transform;
-        Place(toggleBoxRect, new Vector2(-234f, 0f), new Vector2(26f, 26f));
+        Place(toggleBoxRect, new Vector2(-232f, 0f), new Vector2(30f, 30f));
 
         GameObject checkmarkObject = new GameObject("Checkmark", typeof(RectTransform));
         checkmarkObject.transform.SetParent(toggleBoxObject.transform, false);
         Image checkmarkImage = checkmarkObject.AddComponent<Image>();
-        checkmarkImage.sprite = pillSprite;
-        checkmarkImage.type = Image.Type.Sliced;
-        checkmarkImage.color = Gold;
+        checkmarkImage.sprite = null;
+        checkmarkImage.type = Image.Type.Simple;
+        checkmarkImage.color = new Color(0.12f, 0.08f, 0.03f, 1f);
         checkmarkImage.raycastTarget = false;
         RectTransform checkmarkRect = (RectTransform)checkmarkObject.transform;
         Stretch(checkmarkRect);
-        checkmarkRect.offsetMin = new Vector2(5f, 5f);
-        checkmarkRect.offsetMax = new Vector2(-5f, -5f);
+        checkmarkRect.offsetMin = new Vector2(7f, 7f);
+        checkmarkRect.offsetMax = new Vector2(-7f, -7f);
 
-        TextMeshProUGUI toggleLabel = CreateText("Label", toggleRow, "SONS FUN (MÈMES)", 20f, labelFont, WarmWhite);
-        Place(toggleLabel.rectTransform, new Vector2(22f, 0f), new Vector2(456f, 28f));
-        toggleLabel.alignment = TextAlignmentOptions.Left;
-        toggleLabel.characterSpacing = 2f;
+        funToggleBox = toggleBoxImage;
+        funToggleCheckmark = checkmarkObject;
+        funToggleLabel = CreateText("Label", toggleRow, "SONS FUN (MÈMES) : OUI", 20f, labelFont, WarmWhite);
+        Place(funToggleLabel.rectTransform, new Vector2(22f, 0f), new Vector2(456f, 32f));
+        funToggleLabel.alignment = TextAlignmentOptions.Left;
+        funToggleLabel.characterSpacing = 1f;
 
         funToggle = toggleBoxObject.AddComponent<Toggle>();
         funToggle.targetGraphic = toggleBoxImage;
-        funToggle.graphic = checkmarkImage;
-        funToggle.toggleTransition = Toggle.ToggleTransition.Fade;
+        funToggle.transition = Selectable.Transition.None;
+        funToggle.toggleTransition = Toggle.ToggleTransition.None;
+        funToggle.graphic = null;
         funToggle.isOn = ArcadeAudio.FunSoundsEnabled;
         funToggle.onValueChanged.AddListener(OnFunSoundsChanged);
+        UpdateFunToggleVisual(ArcadeAudio.FunSoundsEnabled);
 
         GameObject buttonObject = new GameObject("PlayButton", typeof(RectTransform));
         buttonObject.transform.SetParent(namePanel, false);
@@ -1009,6 +1016,8 @@ public sealed class ScoreboardUI : MonoBehaviour
             funToggle.SetIsOnWithoutNotify(ArcadeAudio.FunSoundsEnabled);
         }
 
+        UpdateFunToggleVisual(ArcadeAudio.FunSoundsEnabled);
+
         manager.SetLaunchLocked(true);
     }
 
@@ -1063,6 +1072,25 @@ public sealed class ScoreboardUI : MonoBehaviour
     private void OnFunSoundsChanged(bool enabled)
     {
         ArcadeAudio.SetFunSounds(enabled);
+        UpdateFunToggleVisual(enabled);
+    }
+
+    private void UpdateFunToggleVisual(bool enabled)
+    {
+        if (funToggleBox != null)
+        {
+            funToggleBox.color = enabled ? Gold : new Color(0.88f, 0.82f, 0.68f, 0.96f);
+        }
+
+        if (funToggleCheckmark != null)
+        {
+            funToggleCheckmark.SetActive(enabled);
+        }
+
+        if (funToggleLabel != null)
+        {
+            funToggleLabel.text = enabled ? "SONS FUN (MÈMES) : OUI" : "SONS FUN (MÈMES) : NON";
+        }
     }
 
     private void SubmitName()
