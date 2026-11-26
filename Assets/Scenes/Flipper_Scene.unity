@@ -323,10 +323,10 @@ PrefabInstance:
       addedObject: {fileID: 2068529483}
     - targetCorrespondingSourceObject: {fileID: 2983308815182394666, guid: 22f9a547c140244d5b214dd91cd42525, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2068529484}
+      addedObject: {fileID: 2068529488}
     - targetCorrespondingSourceObject: {fileID: 2983308815182394666, guid: 22f9a547c140244d5b214dd91cd42525, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2068529488}
+      addedObject: {fileID: 2068529492}
   m_SourcePrefab: {fileID: 100100000, guid: 22f9a547c140244d5b214dd91cd42525, type: 3}
 --- !u!1001 &92963168
 PrefabInstance:
@@ -2104,13 +2104,13 @@ PrefabInstance:
       addedObject: {fileID: 760993524}
     - targetCorrespondingSourceObject: {fileID: 2983308815182394666, guid: 22f9a547c140244d5b214dd91cd42525, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 760993527}
-    - targetCorrespondingSourceObject: {fileID: 2983308815182394666, guid: 22f9a547c140244d5b214dd91cd42525, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 760993528}
     - targetCorrespondingSourceObject: {fileID: 2983308815182394666, guid: 22f9a547c140244d5b214dd91cd42525, type: 3}
       insertIndex: -1
       addedObject: {fileID: 760993532}
+    - targetCorrespondingSourceObject: {fileID: 2983308815182394666, guid: 22f9a547c140244d5b214dd91cd42525, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 760993536}
   m_SourcePrefab: {fileID: 100100000, guid: 22f9a547c140244d5b214dd91cd42525, type: 3}
 --- !u!1 &345772467
 GameObject:
@@ -3933,27 +3933,6 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 3
---- !u!114 &760993527
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 760993520}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e8a1ed8a68e04ac2832f5783f30d420, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FlipperController
-  side: 0
-  key: 61
-  activeVelocity: -900
-  restVelocity: 900
-  maxTorque: 10000
-  useLimits: 1
-  minAngle: -60
-  maxAngle: 0
-  smoothMotion: 1
 --- !u!64 &760993528
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -3997,6 +3976,27 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.1152404, y: 0.009999998, z: 0.010000002}
   m_Center: {x: 0.04130887, y: 2.3283064e-10, z: 6.155501e-10}
+--- !u!114 &760993536
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 760993520}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c402b06903a70437b8d6328326e7e817, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LeftFlipperController
+  side: 0
+  key: 61
+  activeVelocity: -900
+  restVelocity: 900
+  maxTorque: 10000
+  useLimits: 1
+  minAngle: -60
+  maxAngle: 0
+  smoothMotion: 1
 --- !u!1 &782457603
 GameObject:
   m_ObjectHideFlags: 0
@@ -5234,6 +5234,8 @@ MonoBehaviour:
   speed: 20
   ballTag: Ball
   hitSound: {fileID: 0}
+  hitSoundVolume: 0.9
+  hitSoundCooldown: 0.5
   debugLogs: 0
 --- !u!1 &1008735810
 GameObject:
@@ -5283,12 +5285,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.CanvasScaler
-  m_UiScaleMode: 0
+  m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 800, y: 600}
+  m_ReferenceResolution: {x: 1205, y: 678}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_MatchWidthOrHeight: 0.5
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -6883,22 +6885,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SlingshotMover
   showStarterModel: 1
-  starterModelScale: {x: 0.65, y: 0.4, z: 0.4}
+  starterModelScale: {x: 1.25, y: 0.78, z: 0.78}
   starterModelOffset: {x: 0, y: 0, z: 0}
   direction: {x: 1, y: 0, z: 0}
   useLocalSpace: 1
   ball: {fileID: 0}
   optimizeBallMotion: 1
+  useCharge: 1
+  fullChargeTime: 0.9
+  chargePowerCurve: 1
+  minimumLaunchSpeed: 20
+  maximumLaunchSpeed: 62
   launchSpeed: 54
   overrideBallVelocity: 1
   logLaunch: 0
   randomizeLaunch: 1
-  minimumLaunchSpeed: 46
-  maximumLaunchSpeed: 58
-  launchRandomBias: 0.65
-  maximumLaunchAngle: 4
-  pullbackDistance: 0.5
-  pullbackDuration: 0.1
+  launchSpeedJitter: 0.03
+  maximumLaunchAngle: 3
+  pullbackDistance: 0.8
+  pullbackDuration: 0.08
   punchDistance: 1
   punchDuration: 0.1
   returnDuration: 0.15
@@ -7710,15 +7715,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 0297c690ad4b4ad45b788d10bc25139f, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.65
+      value: 1.25
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 0297c690ad4b4ad45b788d10bc25139f, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.4
+      value: 0.78
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 0297c690ad4b4ad45b788d10bc25139f, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.4
+      value: 0.78
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 0297c690ad4b4ad45b788d10bc25139f, type: 3}
       propertyPath: m_LocalPosition.x
@@ -8322,6 +8327,7 @@ GameObject:
   - component: {fileID: 1564672892}
   - component: {fileID: 1564672891}
   - component: {fileID: 1564672890}
+  - component: {fileID: 1564672894}
   m_Layer: 0
   m_Name: Flipper Game
   m_TagString: Untagged
@@ -8373,6 +8379,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PinballGameManager
   startingBalls: 3
   defaultPlayerName: AXEL L
+  ballLostVolume: 0.9
+  gameOverVolume: 0.9
   treePoints: 25
   iutPoints: 75
   bumperPoints: 100
@@ -8397,6 +8405,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1564672894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1564672889}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 370844d3c7b55456ca7e5395acb5889b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::QuitGame
 --- !u!1 &1591968336
 GameObject:
   m_ObjectHideFlags: 0
@@ -10485,27 +10505,6 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4068373912626513877, guid: 6be01a4d826cb45aebf1cfbf2d91ab9a, type: 3}
---- !u!114 &2068529484
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2068529477}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e8a1ed8a68e04ac2832f5783f30d420, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FlipperController
-  side: 1
-  key: 62
-  activeVelocity: 900
-  restVelocity: -900
-  maxTorque: 10000
-  useLimits: 1
-  minAngle: 0
-  maxAngle: 60
-  smoothMotion: 1
 --- !u!65 &2068529488
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -10527,6 +10526,27 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.11524039, y: 0.009999998, z: 0.010000001}
   m_Center: {x: 0.041308865, y: 2.3283064e-10, z: 6.155501e-10}
+--- !u!114 &2068529492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2068529477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d42e7e2277ef54f9b9b70694b11a8066, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RightFlipperController
+  side: 1
+  key: 62
+  activeVelocity: 900
+  restVelocity: -900
+  maxTorque: 10000
+  useLimits: 1
+  minAngle: 0
+  maxAngle: 60
+  smoothMotion: 1
 --- !u!1 &2103686001
 GameObject:
   m_ObjectHideFlags: 0

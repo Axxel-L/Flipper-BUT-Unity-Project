@@ -1,6 +1,10 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+/// <summary>
+/// Bouton Quit (Xin-Mo button2) : termine la partie en cours.
+/// Le game over est déclenché, le score est enregistré et la modale REJOUER s'affiche.
+/// </summary>
 public class QuitGame : MonoBehaviour
 {
     private PinballControls controls;
@@ -14,26 +18,46 @@ public class QuitGame : MonoBehaviour
 
     void OnEnable()
     {
-        quitAction.Enable();
+        if (quitAction != null)
+        {
+            quitAction.Enable();
+        }
     }
 
     void OnDisable()
     {
-        quitAction.Disable();
+        if (quitAction != null)
+        {
+            quitAction.Disable();
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (controls != null)
+        {
+            controls.Dispose();
+        }
     }
 
     void Update()
     {
-        if (quitAction.WasPressedThisFrame())
+        if (quitAction != null && quitAction.WasPressedThisFrame())
         {
-            Quit();
+            EndCurrentGame();
         }
     }
 
-    void Quit()
+    void EndCurrentGame()
     {
-        Debug.Log("Quit requested");
+        PinballGameManager manager = PinballGameManager.Instance;
+        if (manager != null)
+        {
+            manager.EndGame();
+            return;
+        }
 
+        // Secours : pas de gestionnaire de partie (scène de menu / test isolé).
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else

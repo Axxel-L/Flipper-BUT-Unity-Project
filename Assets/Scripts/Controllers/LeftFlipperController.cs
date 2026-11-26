@@ -1,58 +1,25 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class LeftFlipperController : MonoBehaviour
+/// <summary>
+/// Flipper gauche : reprend toute la physique de <see cref="FlipperController"/>
+/// (Rigidbody + HingeJoint) et force le côté gauche / la touche flèche gauche.
+/// </summary>
+[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(HingeJoint))]
+public sealed class LeftFlipperController : FlipperController
 {
-    [Header("Flipper angles")]
-    public float restAngle = 0f;
-    public float activeAngle = -45f;
-    public float flipSpeed = 25f;
-
-    private static  PinballControls controls;
-    private float currentAngle;
-
-    void Awake()
+    protected override void Awake()
     {
-        controls = new PinballControls();
+        side = Side.Left;
+        key = Key.LeftArrow;
+        base.Awake();
     }
 
-    void OnEnable()
+    protected override void OnValidate()
     {
-        controls.GamePlayPF.LeftFlipper.Enable();
-    }
-
-    void OnDisable()
-    {
-        controls.GamePlayPF.LeftFlipper.Disable();
-    }
-
-    void Start()
-    {
-        currentAngle = restAngle;
-    }
-
-    void Update()
-    {
-        bool pressed = controls.GamePlayPF.LeftFlipper.IsPressed();
-
-        float targetAngle = pressed ? activeAngle : restAngle;
-
-        currentAngle = Mathf.Lerp(
-            currentAngle,
-            targetAngle,
-            Time.deltaTime * flipSpeed
-        );
-
-        transform.localRotation = Quaternion.Euler(0f, currentAngle, 0f);
-    }
-    private static void OnQuit(InputAction.CallbackContext ctx)
-    {
-        Debug.Log("[FlipperController] QUIT GAME");
-
-        #if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-        #else
-            Application.Quit();
-        #endif
+        side = Side.Left;
+        key = Key.LeftArrow;
+        base.OnValidate();
     }
 }

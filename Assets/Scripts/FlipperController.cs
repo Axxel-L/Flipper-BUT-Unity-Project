@@ -35,7 +35,7 @@ public class FlipperController : MonoBehaviour
 
     private bool pressed;
 
-    void Awake()
+    protected virtual void Awake()
     {
         hinge = GetComponent<HingeJoint>();
         body = GetComponent<Rigidbody>();
@@ -84,25 +84,25 @@ public class FlipperController : MonoBehaviour
         pressed = false;
     }
 
-    void OnEnable()
+    protected virtual void OnEnable()
     {
         if (board != null)
             board.GamePlayPF.Enable();
     }
 
-    void OnDisable()
+    protected virtual void OnDisable()
     {
         if (board != null)
             board.GamePlayPF.Disable();
     }
 
-    void OnDestroy()
+    protected virtual void OnDestroy()
     {
         if (board != null)
             board.Dispose();
     }
 
-    void Update()
+    protected virtual void Update()
     {
         bool boardPressed =
             boardAction != null && boardAction.IsPressed();
@@ -131,7 +131,7 @@ public class FlipperController : MonoBehaviour
         hinge.motor = motor;
     }
 
-    void OnValidate()
+    protected virtual void OnValidate()
     {
         if (minAngle > maxAngle)
         {
