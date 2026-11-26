@@ -65,6 +65,25 @@ public static class ArcadeAudio
     private static bool ballLostTried;
     private static bool gameOverTried;
 
+    private const string FunSoundsKey = "flipper.funSounds";
+
+    /// <summary>Vrai = voix/mèmes activés, faux = sons d'origine.</summary>
+    public static bool FunSoundsEnabled { get; private set; } = true;
+
+    /// <summary>Charge le choix du joueur (activé par défaut).</summary>
+    public static void LoadFunSounds()
+    {
+        FunSoundsEnabled = PlayerPrefs.GetInt(FunSoundsKey, 1) == 1;
+    }
+
+    /// <summary>Active/désactive les sons fun et mémorise le choix.</summary>
+    public static void SetFunSounds(bool enabled)
+    {
+        FunSoundsEnabled = enabled;
+        PlayerPrefs.SetInt(FunSoundsKey, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+    }
+
     /// <summary>Voix "C'est vrai" utilisée par les bumpers et les arbres.</summary>
     public static AudioClip GetCestVrai()
     {

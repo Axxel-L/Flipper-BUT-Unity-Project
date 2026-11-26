@@ -72,6 +72,7 @@ public sealed class ScoreboardUI : MonoBehaviour
     private Image nameDim;
     private RectTransform namePanel;
     private TMP_InputField nameInput;
+    private Toggle funToggle;
     private float namePanelScale = 0.94f;
     private float namePanelScaleVelocity;
     private float nameDimAlpha;
@@ -883,6 +884,43 @@ public sealed class ScoreboardUI : MonoBehaviour
         nameInput.caretWidth = 2;
         nameInput.onSubmit.AddListener(OnNameSubmitted);
 
+        RectTransform toggleRow = CreateRect("FunSounds", namePanel);
+        Place(toggleRow, new Vector2(0f, -70f), new Vector2(520f, 28f));
+
+        GameObject toggleBoxObject = new GameObject("Checkbox", typeof(RectTransform));
+        toggleBoxObject.transform.SetParent(toggleRow, false);
+        Image toggleBoxImage = toggleBoxObject.AddComponent<Image>();
+        toggleBoxImage.sprite = pillSprite;
+        toggleBoxImage.type = Image.Type.Sliced;
+        toggleBoxImage.color = new Color(0.055f, 0.047f, 0.038f, 0.98f);
+        toggleBoxImage.raycastTarget = true;
+        RectTransform toggleBoxRect = (RectTransform)toggleBoxObject.transform;
+        Place(toggleBoxRect, new Vector2(-234f, 0f), new Vector2(26f, 26f));
+
+        GameObject checkmarkObject = new GameObject("Checkmark", typeof(RectTransform));
+        checkmarkObject.transform.SetParent(toggleBoxObject.transform, false);
+        Image checkmarkImage = checkmarkObject.AddComponent<Image>();
+        checkmarkImage.sprite = pillSprite;
+        checkmarkImage.type = Image.Type.Sliced;
+        checkmarkImage.color = Gold;
+        checkmarkImage.raycastTarget = false;
+        RectTransform checkmarkRect = (RectTransform)checkmarkObject.transform;
+        Stretch(checkmarkRect);
+        checkmarkRect.offsetMin = new Vector2(5f, 5f);
+        checkmarkRect.offsetMax = new Vector2(-5f, -5f);
+
+        TextMeshProUGUI toggleLabel = CreateText("Label", toggleRow, "SONS FUN (MÈMES)", 20f, labelFont, WarmWhite);
+        Place(toggleLabel.rectTransform, new Vector2(22f, 0f), new Vector2(456f, 28f));
+        toggleLabel.alignment = TextAlignmentOptions.Left;
+        toggleLabel.characterSpacing = 2f;
+
+        funToggle = toggleBoxObject.AddComponent<Toggle>();
+        funToggle.targetGraphic = toggleBoxImage;
+        funToggle.graphic = checkmarkImage;
+        funToggle.toggleTransition = Toggle.ToggleTransition.Fade;
+        funToggle.isOn = ArcadeAudio.FunSoundsEnabled;
+        funToggle.onValueChanged.AddListener(OnFunSoundsChanged);
+
         GameObject buttonObject = new GameObject("PlayButton", typeof(RectTransform));
         buttonObject.transform.SetParent(namePanel, false);
         Image buttonImage = buttonObject.AddComponent<Image>();
@@ -890,7 +928,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         buttonImage.type = Image.Type.Sliced;
         buttonImage.color = new Color(0.86f, 0.7f, 0.4f, 0.95f);
         RectTransform buttonRect = (RectTransform)buttonObject.transform;
-        Place(buttonRect, new Vector2(0f, -100f), new Vector2(330f, 50f));
+        Place(buttonRect, new Vector2(0f, -118f), new Vector2(330f, 50f));
 
         Button button = buttonObject.AddComponent<Button>();
         button.targetGraphic = buttonImage;
@@ -904,7 +942,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         buttonText.characterSpacing = 8f;
 
         TextMeshProUGUI hint = CreateText("Hint", namePanel, "ENTRÉE POUR VALIDER", 11f, bodyFont, Muted);
-        Place(hint.rectTransform, new Vector2(0f, -138f), new Vector2(400f, 18f));
+        Place(hint.rectTransform, new Vector2(0f, -158f), new Vector2(400f, 18f));
         hint.characterSpacing = 6f;
 
         nameRoot.gameObject.SetActive(false);
@@ -966,6 +1004,11 @@ public sealed class ScoreboardUI : MonoBehaviour
             nameInput.text = manager.PlayerName;
         }
 
+        if (funToggle != null)
+        {
+            funToggle.SetIsOnWithoutNotify(ArcadeAudio.FunSoundsEnabled);
+        }
+
         manager.SetLaunchLocked(true);
     }
 
@@ -1015,6 +1058,11 @@ public sealed class ScoreboardUI : MonoBehaviour
     private void OnNameSubmitted(string value)
     {
         SubmitName();
+    }
+
+    private void OnFunSoundsChanged(bool enabled)
+    {
+        ArcadeAudio.SetFunSounds(enabled);
     }
 
     private void SubmitName()

@@ -285,7 +285,7 @@ public sealed class BumperPhysics : MonoBehaviour
         if (impactAudio != null)
         {
             float loudness = Mathf.Lerp(0.7f, 1f, Mathf.Clamp01(impactSpeed / 35f));
-            AudioClip voice = ArcadeAudio.GetCestVrai();
+            AudioClip voice = ArcadeAudio.FunSoundsEnabled ? ArcadeAudio.GetCestVrai() : null;
 
             if (voice != null)
             {
@@ -365,11 +365,9 @@ public sealed class BumperPhysics : MonoBehaviour
             return;
         }
 
-        // Précharge la voix ; ne génère le son de secours que si elle est absente.
-        if (ArcadeAudio.GetCestVrai() == null)
-        {
-            ArcadeAudio.GetBumperHit(0);
-        }
+        // Précharge les deux modes : voix fun et sons d'origine.
+        ArcadeAudio.GetCestVrai();
+        ArcadeAudio.GetBumperHit(0);
 
         impactAudio = gameObject.AddComponent<AudioSource>();
         impactAudio.playOnAwake = false;

@@ -34,6 +34,7 @@ public class IUTBumper : MonoBehaviour
         }
 
         ArcadeAudio.GetIut67();
+        ArcadeAudio.GetBumperHit(0);
     }
 
     private void OnCollisionEnter(Collision collision) => Push(collision, true);
@@ -133,16 +134,30 @@ public class IUTBumper : MonoBehaviour
         }
 
         lastSoundTime = Time.time;
-        AudioClip clip = ArcadeAudio.GetIut67();
 
-        if (clip != null)
+        if (ArcadeAudio.FunSoundsEnabled)
         {
-            hitSound.pitch = 1f;
-            hitSound.PlayOneShot(clip, hitSoundVolume);
+            AudioClip clip = ArcadeAudio.GetIut67();
+            if (clip != null)
+            {
+                hitSound.pitch = 1f;
+                hitSound.PlayOneShot(clip, hitSoundVolume);
+                return;
+            }
         }
-        else
+
+        // Mode normal : ancien son de la plaque s'il existe, sinon impact synthétique.
+        if (hitSound.clip != null)
         {
             hitSound.Play();
+            return;
+        }
+
+        AudioClip normal = ArcadeAudio.GetBumperHit(0);
+        if (normal != null)
+        {
+            hitSound.pitch = 1f;
+            hitSound.PlayOneShot(normal, hitSoundVolume);
         }
     }
 

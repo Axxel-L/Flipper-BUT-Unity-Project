@@ -152,6 +152,7 @@ public sealed class PinballGameManager : MonoBehaviour
         GamesPlayed = PlayerPrefs.GetInt(GamesPlayedKey, 0);
         PlayerBestScore = LoadPlayerBest(PlayerName);
         LoadLeaderboard();
+        ArcadeAudio.LoadFunSounds();
         EnsureVoiceAudio();
 
         Score = 0;
@@ -379,7 +380,11 @@ public sealed class PinballGameManager : MonoBehaviour
             return;
         }
 
-        PlayVoice(ArcadeAudio.GetBallLost(), ballLostVolume);
+        if (ArcadeAudio.FunSoundsEnabled)
+        {
+            PlayVoice(ArcadeAudio.GetBallLost(), ballLostVolume);
+        }
+
         StateChanged?.Invoke();
         ToastRequested?.Invoke("BILLE PERDUE\n" + Balls + " RESTANTE" + (Balls > 1 ? "S" : ""));
         resetRoutine = StartCoroutine(ResetAfterDelay(1.1f));
@@ -445,7 +450,11 @@ public sealed class PinballGameManager : MonoBehaviour
             rb.useGravity = false;
         }
 
-        PlayVoice(ArcadeAudio.GetGameOverVoice(), gameOverVolume);
+        if (ArcadeAudio.FunSoundsEnabled)
+        {
+            PlayVoice(ArcadeAudio.GetGameOverVoice(), gameOverVolume);
+        }
+
         UpdateHighScores();
         StateChanged?.Invoke();
         scoreboard?.ShowGameOver();
