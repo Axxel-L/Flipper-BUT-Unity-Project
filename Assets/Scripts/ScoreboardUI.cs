@@ -411,7 +411,12 @@ public sealed class ScoreboardUI : MonoBehaviour
         rect.sizeDelta = new Vector2(height / scale, width / scale);
         rect.localEulerAngles = new Vector3(0f, 0f, -90f);
 
-        text.fontSize = big ? referenceWidth * 0.34f : referenceWidth * 0.42f;
+        bool scorePlaque = plaque.id == "top1" || plaque.id == "top2";
+        text.fontSize = big
+            ? referenceWidth * 0.68f
+            : scorePlaque
+                ? referenceWidth * 0.68f
+                : referenceWidth * 0.58f;
         text.alignment = TextAlignmentOptions.Center;
         text.overflowMode = TextOverflowModes.Overflow;
         text.textWrappingMode = TextWrappingModes.NoWrap;
@@ -485,25 +490,26 @@ public sealed class ScoreboardUI : MonoBehaviour
         if (plaqueScore != null)
         {
             plaqueScore.text = manager.HasLaunched || manager.IsGameOver
-                ? "<size=48%><color=#C9A24B>SCORE</color></size>\n" + FormatScore(manager.Score)
-                : "<size=52%><color=#C9A24B>ESPACE</color></size>\n<size=92%>LANCER</size>";
+                ? "<size=55%><color=#C9A24B>SCORE</color></size>\n<size=115%>" + FormatScore(manager.Score) + "</size>"
+                : "<size=60%><color=#C9A24B>ESPACE</color></size>\n<size=115%>LANCER</size>";
         }
 
         if (plaquePlayer != null)
         {
-            plaquePlayer.text = "<size=78%><color=#C9A24B>JOUEUR</color></size>\n" + ShortName(manager.PlayerName);
+            plaquePlayer.text = "<size=60%><color=#C9A24B>JOUEUR</color></size>\n<size=125%>"
+                + ShortName(manager.PlayerName) + "</size>";
         }
 
         if (plaqueTop1 != null)
         {
-            plaqueTop1.text = "<size=78%><color=#C9A24B>TOP 1</color></size>\n"
-                + ShortName(manager.Top1.name) + " " + FormatScore(manager.Top1.score);
+            plaqueTop1.text = "<size=58%><color=#C9A24B>TOP 1</color></size>\n<size=125%>"
+                + ShortName(manager.Top1.name) + " " + FormatScore(manager.Top1.score) + "</size>";
         }
 
         if (plaqueTop2 != null)
         {
-            plaqueTop2.text = "<size=78%><color=#C9A24B>TOP 2</color></size>\n"
-                + ShortName(manager.Top2.name) + " " + FormatScore(manager.Top2.score);
+            plaqueTop2.text = "<size=58%><color=#C9A24B>TOP 2</color></size>\n<size=125%>"
+                + ShortName(manager.Top2.name) + " " + FormatScore(manager.Top2.score) + "</size>";
         }
 
         UpdateStatusPlaque();
@@ -530,7 +536,7 @@ public sealed class ScoreboardUI : MonoBehaviour
             string[] lines = plaqueMessage.Split('\n');
             string first = lines.Length > 0 ? lines[0] : string.Empty;
             string second = lines.Length > 1 ? lines[1] : string.Empty;
-            plaqueStatus.text = "<size=78%><color=#E0A86A>" + first + "</color></size>\n" + second;
+            plaqueStatus.text = "<size=60%><color=#E0A86A>" + first + "</color></size>\n<size=125%>" + second + "</size>";
             return;
         }
 
@@ -548,8 +554,8 @@ public sealed class ScoreboardUI : MonoBehaviour
             status = "<color=#B8AA90>CALME</color>";
         }
 
-        plaqueStatus.text = "<size=78%><color=#C9A24B>BILLES " + manager.Balls + "/"
-            + manager.startingBalls + "</color></size>\n" + status;
+        plaqueStatus.text = "<size=58%><color=#C9A24B>BILLES " + manager.Balls + "/"
+            + manager.startingBalls + "</color></size>\n<size=125%>" + status + "</size>";
     }
 
     private void UpdateScoreFlash()
@@ -668,7 +674,7 @@ public sealed class ScoreboardUI : MonoBehaviour
     {
         if (popupPool.Count < 16)
         {
-            TextMeshProUGUI popup = CreateText("Popup", popupLayer, string.Empty, 22f, displayFont, Gold);
+            TextMeshProUGUI popup = CreateText("Popup", popupLayer, string.Empty, 34f, displayFont, Gold);
             popup.rectTransform.anchorMin = popup.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             popup.rectTransform.sizeDelta = new Vector2(240f, 70f);
             popup.alignment = TextAlignmentOptions.Center;
@@ -709,29 +715,29 @@ public sealed class ScoreboardUI : MonoBehaviour
         Image highlight = CreateImage("Highlight", modalPanel, null, new Color(1f, 0.9f, 0.65f, 0.12f));
         Place(highlight.rectTransform, new Vector2(0f, 198f), new Vector2(590f, 1f));
 
-        modalTitle = CreateText("Title", modalPanel, "PERDU", 94f, displayFont, WarmWhite);
+        modalTitle = CreateText("Title", modalPanel, "PERDU", 108f, displayFont, WarmWhite);
         Place(modalTitle.rectTransform, new Vector2(0f, 118f), new Vector2(620f, 124f));
         modalTitle.characterSpacing = -3f;
         modalTitle.lineSpacing = -10f;
         AddUnderlay(modalTitle, new Color(0f, 0f, 0f, 0.55f), 0.3f, 2.5f);
 
-        modalSubtitle = CreateText("Subtitle", modalPanel, "PARTIE TERMINÉE", 15f, labelFont, GoldMuted);
+        modalSubtitle = CreateText("Subtitle", modalPanel, "PARTIE TERMINÉE", 20f, labelFont, GoldMuted);
         Place(modalSubtitle.rectTransform, new Vector2(0f, 50f), new Vector2(600f, 26f));
         modalSubtitle.characterSpacing = 10f;
 
         Image divider = CreateImage("Divider", modalPanel, null, new Color(0.92f, 0.76f, 0.43f, 0.22f));
         Place(divider.rectTransform, new Vector2(0f, 24f), new Vector2(480f, 1f));
 
-        modalFinalLabel = CreateText("FinalLabel", modalPanel, "SCORE FINAL", 12f, bodyFont, Muted);
+        modalFinalLabel = CreateText("FinalLabel", modalPanel, "SCORE FINAL", 19f, bodyFont, Muted);
         Place(modalFinalLabel.rectTransform, new Vector2(0f, 2f), new Vector2(400f, 20f));
         modalFinalLabel.characterSpacing = 8f;
 
-        modalFinalValue = CreateText("FinalValue", modalPanel, "00000000", 52f, displayFont, Gold);
+        modalFinalValue = CreateText("FinalValue", modalPanel, "00000000", 82f, displayFont, Gold);
         Place(modalFinalValue.rectTransform, new Vector2(0f, -46f), new Vector2(600f, 62f));
         modalFinalValue.characterSpacing = -2f;
         AddUnderlay(modalFinalValue, new Color(0f, 0f, 0f, 0.45f), 0.2f, 2f);
 
-        modalTopLines = CreateText("TopLines", modalPanel, string.Empty, 15f, labelFont, new Color(0.92f, 0.84f, 0.68f, 1f));
+        modalTopLines = CreateText("TopLines", modalPanel, string.Empty, 28f, labelFont, new Color(0.92f, 0.84f, 0.68f, 1f));
         Place(modalTopLines.rectTransform, new Vector2(0f, -116f), new Vector2(600f, 62f));
         modalTopLines.lineSpacing = 6f;
         modalTopLines.characterSpacing = 2f;
@@ -744,7 +750,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         modalPromptPill.type = Image.Type.Sliced;
         Place(modalPromptPill.rectTransform, new Vector2(0f, -172f), new Vector2(330f, 50f));
 
-        modalPromptText = CreateText("Prompt", modalPanel, "REJOUER", 18f, labelFont, new Color(0.12f, 0.08f, 0.03f, 1f));
+        modalPromptText = CreateText("Prompt", modalPanel, "REJOUER", 24f, labelFont, new Color(0.12f, 0.08f, 0.03f, 1f));
         Place(modalPromptText.rectTransform, new Vector2(0f, -172f), new Vector2(320f, 42f));
         modalPromptText.characterSpacing = 8f;
 
@@ -977,7 +983,7 @@ public sealed class ScoreboardUI : MonoBehaviour
         }
 
         name = name.ToUpperInvariant();
-        return name.Length > 9 ? name.Substring(0, 9) : name;
+        return name.Length > 15 ? name.Substring(0, 15) : name;
     }
 
     private TextMeshProUGUI CreateText(string name, Transform parent, string content, float size, TMP_FontAsset font, Color color)
